@@ -193,6 +193,27 @@ python -m kvhomelibrary serve --db data\library.db --admin-password "мой-па
 его только в доверенной локальной сети; для выхода в интернет ставьте
 сервер за HTTPS-прокси.
 
+### Развёртывание из GitHub
+
+Готовые скрипты для Linux (systemd-демон) и Windows (автозапуск через
+Планировщик заданий) описаны в [deploy/README.md](deploy/README.md).
+
+Linux, одной командой:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KravtsovVG/KVHomeLibrary/main/deploy/linux/install.sh \
+  -o /tmp/kvhl-install.sh
+sudo bash /tmp/kvhl-install.sh
+```
+
+Windows:
+
+```powershell
+git clone https://github.com/KravtsovVG/KVHomeLibrary.git "$env:USERPROFILE\KVHomeLibrary"
+powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\KVHomeLibrary\deploy\windows\install.ps1" `
+  -LibraryPath "D:\Books"
+```
+
 ### Debian / Linux
 
 Подробная инструкция с systemd, правами, ufw и автоматическим сканированием:
