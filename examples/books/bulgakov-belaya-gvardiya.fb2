@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"
+             xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>prose_classic</genre>
+      <author>
+        <first-name>Михаил</first-name>
+        <middle-name>Афанасьевич</middle-name>
+        <last-name>Булгаков</last-name>
+      </author>
+      <book-title>Белая гвардия</book-title>
+      <annotation>
+        <p>Роман о семье Турбиных и о судьбе русской интеллигенции в годы Гражданской войны.</p>
+        <p>Действие происходит в Киеве зимой 1918–1919 годов.</p>
+      </annotation>
+      <keywords>классика, Гражданская война, Киев</keywords>
+      <date value="1925">1925</date>
+      <coverpage>
+        <image l:href="#cover.png"/>
+      </coverpage>
+      <lang>ru</lang>
+      <src-lang>ru</src-lang>
+      <sequence name="Русская классика" number="1"/>
+    </title-info>
+    <document-info>
+      <author>
+        <first-name>Михаил</first-name>
+        <last-name>Булгаков</last-name>
+      </author>
+      <program-used>KVHomeLibrary demo</program-used>
+      <date value="2024-01-01">2024-01-01</date>
+      <id>BULGAKOV-BELAYA-GVARDIYA</id>
+      <version>1.0</version>
+    </document-info>
+    <publish-info>
+      <book-name>Белая гвардия</book-name>
+      <publisher>Недра</publisher>
+      <city>Москва</city>
+      <year>1925</year>
+      <isbn>978-5-00000-001-1</isbn>
+    </publish-info>
+  </description>
+  <body>
+    <section>
+      <title><p>Глава первая</p></title>
+      <p>Велик был год и страшен год по Рождестве Христовом 1918, от начала же революции второй.</p>
+    </section>
+  </body>
+  <binary id="cover.png" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==</binary>
+</FictionBook>

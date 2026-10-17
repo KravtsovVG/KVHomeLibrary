@@ -1,0 +1,16 @@
+<div class="page-head">
+  <div class="grow">
+    <h1>{{ title }}</h1>
+    <div class="muted">{{ total }} {{ word }}</div>
+  </div>
+  {% if admin %}<a class="btn secondary" href="/admin/books">Администрирование книг</a>{% endif %}
+</div>
+{{ filters|safe }}
+<div class="books" style="margin-top:16px">
+{% if cards %}
+{% for card in cards %}{% include "partials/book_card.html" %}{% endfor %}
+{% else %}
+<div class="empty">Ничего не найдено. Попробуйте изменить запрос или фильтры.</div>
+{% endif %}
+</div>
+{{ pagination|safe }}

@@ -1,0 +1,13 @@
+<h2>{{ title }} <span class="muted small">· <a href="{{ all_url }}">все</a></span></h2>
+{% if items %}
+<div class="collection">
+{% for item in items %}
+  <a class="item" href="{{ item.url }}">
+    <span>{{ item.name }}{% if item.synonyms %}<div class="small muted">синонимы: {{ item.synonyms }}</div>{% endif %}</span>
+    <span class="count">{{ item.count }}</span>
+  </a>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">{{ empty }}</div>
+{% endif %}

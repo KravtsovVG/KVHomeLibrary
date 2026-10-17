@@ -1,0 +1,62 @@
+<h1>Администрирование</h1>
+<div class="muted">Последнее сканирование: {{ last_scan }}</div>
+{{ stats|safe }}
+{% if auth_enabled %}
+<div class="okbox">Администрирование защищено паролем.</div>
+{% else %}
+<div class="hint">Пароль администратора не задан. Управление доступно только с этого компьютера.
+Для доступа с телефона или другого ПК запустите сервер с <code>--admin-password</code>.</div>
+{% endif %}
+<div class="toolbar">
+  <a class="btn" href="/admin/books">Управление книгами</a>
+  <a class="btn secondary" href="/admin/sources">Источники OPDS ({{ sources_count }})</a>
+  <a class="btn secondary" href="/ui/books">Открыть каталог</a>
+</div>
+<div class="grid-2">
+  <div>
+    {% if library_path %}
+    <form method="post" action="/admin/scan" class="panel">
+      <h2 style="margin-top:0">Сканирование библиотеки</h2>
+      <p class="muted small">Каталог: <code>{{ library_path }}</code></p>
+      <label class="small"><input type="checkbox" name="recursive" value="1" checked> Обходить подпапки</label><br>
+      <label class="small"><input type="checkbox" name="prune" value="1"> Удалять из базы книги, файлы которых исчезли</label>
+      <div class="form-actions"><button class="btn" type="submit">Сканировать</button></div>
+    </form>
+    {% else %}
+    <div class="panel">
+      <h2 style="margin-top:0">Сканирование библиотеки</h2>
+      <p class="muted">Каталог не задан. Запустите сервер с параметром
+      <code>--library /путь/к/книгам</code>, чтобы включить сканирование из браузера.</p>
+    </div>
+    {% endif %}
+    <form method="post" action="/admin/reindex" class="panel" style="margin-top:14px">
+      <h2 style="margin-top:0">Поисковый индекс</h2>
+      <p class="muted small">Перестроить FTS5, если поиск перестал находить книги.</p>
+      <button class="btn secondary" type="submit">Перестроить индекс</button>
+    </form>
+  </div>
+  <div class="panel">
+    <h2 style="margin-top:0">Быстрые ссылки</h2>
+    <ul>
+      <li><a href="/opds">OPDS-каталог</a></li>
+      <li><a href="/opds/books">Все книги в OPDS</a></li>
+      <li><a href="/ui/authors">Авторы</a></li>
+      <li><a href="/ui/genres">Категории</a></li>
+      <li><a href="/ui/series">Серии</a></li>
+      <li><a href="/admin/sources">Источники OPDS</a></li>
+    </ul>
+  </div>
+</div>
+{% if errors %}
+<h2>Ошибки разбора</h2>
+<div class="panel" style="overflow:auto">
+  <table class="error-table">
+    <thead><tr><th>Файл</th><th>Ошибка</th></tr></thead>
+    <tbody>
+    {% for error in errors %}<tr><td class="path">{{ error.file_path }}</td><td>{{ error.parse_error }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">Ошибок разбора нет.</p>
+{% endif %}

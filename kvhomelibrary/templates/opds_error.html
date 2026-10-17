@@ -1,0 +1,19 @@
+<div class="page-head">
+  <div class="grow">
+    <div class="muted small"><a href="/admin/sources">← к источникам</a></div>
+    <h1>Не удалось прочитать OPDS</h1>
+    <div class="muted">{{ source_name }}</div>
+  </div>
+</div>
+<div class="flash error" style="margin-top:16px">{{ message }}</div>
+<div class="hint">
+  Проверьте адрес в браузере и повторите попытку. Если каталог открывается
+  по HTTPS, укажите в источнике адрес <code>https://…</code>. Медленные
+  каталоги можно открыть повторно — сервер делает две попытки с таймаутом
+  30 секунд.
+</div>
+<div class="panel">
+  <p class="small">Адрес: <code>{{ url }}</code></p>
+  <p><a class="btn secondary" href="{{ retry_url }}">Повторить</a>
+     <a class="btn secondary" href="/admin/sources">К источникам</a></p>
+</div>

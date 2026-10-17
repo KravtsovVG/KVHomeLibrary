@@ -1,0 +1,13 @@
+<div class="page-head">
+  <div class="grow">
+    <div class="muted small"><a href="/admin/books">← к администрированию</a></div>
+    <h1>Редактирование книги</h1>
+    <div class="muted">{{ book.file_name }}</div>
+  </div>
+</div>
+<div class="hint" style="margin:14px 0">
+  Изменения сохраняются в базе. Неизменённые FB2-файлы при сканировании
+  пропускаются, но если файл изменится, его метаданные будут прочитаны
+  заново и заменят ручные правки.
+</div>
+{% include "partials/edit_form.html" %}

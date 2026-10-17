@@ -1,0 +1,1 @@
+{% for genre in genres %}<a class="chip" href="{{ genre.url }}"{% if genre.title %} title="{{ genre.title }}"{% endif %}>{{ genre.name }}</a>{% endfor %}

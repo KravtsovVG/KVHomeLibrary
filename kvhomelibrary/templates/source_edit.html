@@ -1,0 +1,51 @@
+<div class="page-head">
+  <div class="grow">
+    <div class="muted small"><a href="/admin/sources">← к источникам</a></div>
+    <h1>Источник OPDS</h1>
+    <div class="muted">{{ source.name }}</div>
+  </div>
+  <a class="btn secondary" href="{{ source.open_url }}">Открыть каталог</a>
+</div>
+<div class="grid-2" style="margin-top:16px">
+  <form method="post" action="{{ source.action }}" class="panel">
+    <div class="form-grid">
+      <div class="full">
+        <label for="s-name">Название *</label>
+        <input id="s-name" name="name" required value="{{ source.name }}">
+      </div>
+      <div class="full">
+        <label for="s-url">Адрес OPDS *</label>
+        <input id="s-url" name="url" type="url" required value="{{ source.url }}">
+      </div>
+      <div>
+        <label for="s-user">Логин</label>
+        <input id="s-user" name="username" value="{{ source.username }}" autocomplete="username">
+      </div>
+      <div>
+        <label for="s-pass">Пароль</label>
+        <input id="s-pass" name="password" type="password" value="" autocomplete="new-password"
+               placeholder="оставьте пустым, чтобы не менять">
+      </div>
+      <div class="full">
+        <label class="small"><input type="checkbox" name="enabled" value="1"{% if source.enabled %} checked{% endif %}> Источник включён</label>
+        <label class="small" style="margin-top:6px"><input type="checkbox" name="clear_password" value="1">
+          Очистить сохранённый пароль</label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn secondary" href="/admin/sources">Отмена</a>
+    </div>
+  </form>
+  <div class="panel">
+    <h2 style="margin-top:0">Состояние</h2>
+    <p class="small">Проверен: {{ source.last_checked_at }}</p>
+    <p class="small">Ошибка: {{ source.last_error }}</p>
+    <p class="small muted">Пароль хранится в локальной базе SQLite. Используйте
+    отдельный пароль для OPDS-источника.</p>
+    <form method="post" action="{{ source.delete_url }}"
+          onsubmit="return confirm('Удалить источник? Книги в каталоге останутся.');">
+      <button class="btn danger" type="submit">Удалить источник</button>
+    </form>
+  </div>
+</div>

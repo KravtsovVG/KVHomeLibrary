@@ -1,0 +1,21 @@
+<div class="page-head">
+  <div class="grow">
+    <div class="muted small"><a href="/admin/sources">← к источникам</a></div>
+    <h1>{{ feed_title }}</h1>
+    <div class="muted">{{ source_name }} · <a href="{{ current_url }}" target="_blank" rel="noopener noreferrer">открыть фид</a></div>
+  </div>
+  <a class="btn secondary" href="{{ refresh_url }}">Обновить</a>
+</div>
+{% if nav_entries %}
+<div class="collection" style="margin:14px 0">
+{% for item in nav_entries %}<a class="item" href="{{ item.url }}"><span>{{ item.title }}</span><span class="count">→</span></a>{% endfor %}
+</div>
+{% endif %}
+<div style="margin-top:14px">
+{% if entries %}
+{% for entry in entries %}{% include "partials/remote_entry.html" %}{% endfor %}
+{% else %}
+<div class="empty">В этом фиде нет книг для скачивания. Откройте вложенный раздел выше.</div>
+{% endif %}
+</div>
+{{ pager|safe }}

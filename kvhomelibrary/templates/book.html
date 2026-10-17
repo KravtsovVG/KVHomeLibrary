@@ -1,0 +1,31 @@
+<div class="page-head">
+  <div class="grow">
+    <div class="muted small"><a href="{{ book.back_url }}">← к списку книг</a></div>
+    <h1>{{ book.title }}</h1>
+    <div class="muted">{{ book.authors|safe }}</div>
+  </div>
+</div>
+<div class="detail" style="margin-top:18px">
+  {{ book.cover|safe }}
+  <div>
+    <div class="book-actions" style="margin-top:0">
+      <a class="btn" href="/read/{{ book.id }}">Читать</a>
+      <a class="btn secondary" href="/download/{{ book.id }}">Скачать FB2</a>
+      <a class="btn secondary" href="/opds/books/{{ book.id }}">Карточка OPDS</a>
+      {% if book.admin %}
+      <a class="btn js-edit-book" href="{{ book.edit_url }}">Изменить</a>
+      <form method="post" action="{{ book.delete_url }}" class="inline"
+            onsubmit="return confirm('Удалить книгу из каталога? Файл на диске останется.');">
+        <button class="btn danger" type="submit">Удалить из каталога</button>
+      </form>
+      {% endif %}
+    </div>
+    <table class="meta">
+      {% for row in book.meta %}
+      <tr><th>{{ row.label }}</th><td>{% if row.html %}{{ row.html|safe }}{% else %}{% if row.url %}<a href="{{ row.url }}">{{ row.text }}</a>{% else %}{{ row.text }}{% endif %}{% endif %}</td></tr>
+      {% endfor %}
+    </table>
+    <h2>Аннотация</h2>
+    {% if book.annotation %}<p>{{ book.annotation }}</p>{% else %}<p class="muted">Аннотация отсутствует.</p>{% endif %}
+  </div>
+</div>

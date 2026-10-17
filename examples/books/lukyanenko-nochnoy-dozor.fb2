@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"
+             xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>sf_fantasy</genre>
+      <genre>detective</genre>
+      <author>
+        <first-name>Сергей</first-name>
+        <middle-name>Васильевич</middle-name>
+        <last-name>Лукьяненко</last-name>
+        <email>author@example.org</email>
+      </author>
+      <book-title>Ночной Дозор</book-title>
+      <annotation>
+        <p>Ночной Дозор следит за тёмными силами в Москве. Антон Городецкий — молодой маг, которому предстоит сделать выбор.</p>
+      </annotation>
+      <keywords>фэнтези, городское фэнтези, дозоры</keywords>
+      <date value="1998">1998</date>
+      <coverpage>
+        <image l:href="#cover.png"/>
+      </coverpage>
+      <lang>ru</lang>
+      <src-lang>ru</src-lang>
+      <sequence name="Дозоры" number="1"/>
+    </title-info>
+    <document-info>
+      <author>
+        <first-name>Сергей</first-name>
+        <last-name>Лукьяненко</last-name>
+      </author>
+      <date value="2024-02-01">2024-02-01</date>
+      <id>LUKYANENKO-NOCHNOY-DOZOR</id>
+      <version>1.1</version>
+    </document-info>
+    <publish-info>
+      <book-name>Ночной Дозор</book-name>
+      <publisher>АСТ</publisher>
+      <city>Москва</city>
+      <year>1998</year>
+      <isbn>978-5-00000-002-2</isbn>
+    </publish-info>
+  </description>
+  <body>
+    <section>
+      <title><p>Глава 1</p></title>
+      <p>Свет фонарей дрожал на мокром асфальте.</p>
+    </section>
+  </body>
+  <binary id="cover.png" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==</binary>
+</FictionBook>

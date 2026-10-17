@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <description>
+    <title-info>
+      <genre>sf</genre>
+      <genre>sf_social</genre>
+      <author>
+        <first-name>Аркадий</first-name>
+        <middle-name>Натанович</middle-name>
+        <last-name>Стругацкий</last-name>
+      </author>
+      <author>
+        <first-name>Борис</first-name>
+        <middle-name>Натанович</middle-name>
+        <last-name>Стругацкий</last-name>
+      </author>
+      <book-title>Пикник на обочине</book-title>
+      <annotation>
+        <p>Сталкер Рэдрик Шухарт ходит в Зону — место, где после посещения пришельцев остались смертоносные артефакты.</p>
+      </annotation>
+      <keywords>фантастика, Зона, сталкер</keywords>
+      <date value="1972">1972</date>
+      <lang>ru</lang>
+    </title-info>
+    <document-info>
+      <author>
+        <first-name>Аркадий</first-name>
+        <last-name>Стругацкий</last-name>
+      </author>
+      <date value="2024-03-01">2024-03-01</date>
+      <id>STRUGATSKIE-PIKNIK</id>
+      <version>1.0</version>
+    </document-info>
+    <publish-info>
+      <publisher>Молодая гвардия</publisher>
+      <city>Москва</city>
+      <year>1972</year>
+    </publish-info>
+  </description>
+  <body>
+    <section>
+      <title><p>1</p></title>
+      <p>Зона не любит, когда её называют Зоной.</p>
+    </section>
+  </body>
+</FictionBook>

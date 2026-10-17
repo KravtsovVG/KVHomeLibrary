@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kvhomelibrary"
+version = "0.6.9"
+description = "Домашняя библиотека FB2 с OPDS-каталогом, веб-интерфейсом и внешними OPDS-источниками"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "KVHomeLibrary" }]
+dependencies = []
+
+[project.scripts]
+kvhomelibrary = "kvhomelibrary.cli:main"
+
+[tool.setuptools]
+packages = ["kvhomelibrary"]
+
+[tool.setuptools.package-data]
+kvhomelibrary = [
+    "py.typed",
+    "templates/*.html",
+    "templates/partials/*.html",
+    "static/*.css",
+    "static/*.js",
+]

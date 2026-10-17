@@ -1,0 +1,31 @@
+<form class="panel filters" method="get" action="{{ action }}">
+  <div>
+    <label for="f-q">Поиск</label>
+    <input id="f-q" type="search" name="q" value="{{ q }}" placeholder="Название, автор, аннотация…">
+  </div>
+  <div>
+    <label for="f-author">Автор</label>
+    <select id="f-author" name="author_id">
+      <option value="">Все авторы</option>
+      {% for item in authors %}<option value="{{ item.id }}"{% if item.selected %} selected{% endif %}>{{ item.name }} ({{ item.count }})</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="f-genre">Категория</label>
+    <select id="f-genre" name="genre_id">
+      <option value="">Все категории</option>
+      {% for item in genres %}<option value="{{ item.id }}"{% if item.selected %} selected{% endif %}>{{ item.name }} ({{ item.count }})</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="f-series">Серия</label>
+    <select id="f-series" name="series_id">
+      <option value="">Все серии</option>
+      {% for item in series %}<option value="{{ item.id }}"{% if item.selected %} selected{% endif %}>{{ item.name }} ({{ item.count }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="toolbar" style="margin:0">
+    <button class="btn" type="submit">Применить</button>
+    <a class="btn secondary" href="{{ action }}">Сбросить</a>
+  </div>
+</form>

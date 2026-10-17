@@ -1,0 +1,23 @@
+<article class="book-card">
+  {{ card.cover|safe }}
+  <div class="book-body">
+    <div class="title"><a href="{{ card.url }}">{{ card.title }}</a></div>
+    <div class="authors">{{ card.authors|safe }}</div>
+    {% if card.series %}<div class="small muted">Серия: {{ card.series|safe }}</div>{% endif %}
+    <div class="small muted">{{ card.publisher }}{% if card.year %} · {{ card.year }}{% endif %}</div>
+    <div class="ann">{{ card.annotation }}</div>
+    <div class="chips">{{ card.genres|safe }}</div>
+    <div class="book-actions">
+      <a class="btn small" href="/read/{{ card.id }}">Читать</a>
+      <a class="btn secondary small" href="/download/{{ card.id }}">Скачать FB2</a>
+      <a class="btn secondary small" href="{{ card.url }}">Подробнее</a>
+      {% if card.admin %}
+      <a class="btn secondary small js-edit-book" href="{{ card.edit_url }}">Изменить</a>
+      <form method="post" action="{{ card.delete_url }}" class="inline"
+            onsubmit="return confirm('Удалить книгу из каталога? Файл на диске останется.');">
+        <button class="btn danger small" type="submit">Удалить</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</article>

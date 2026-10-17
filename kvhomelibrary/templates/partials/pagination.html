@@ -1,0 +1,11 @@
+{% if pagination %}
+<nav class="pager">
+{% for item in pagination %}
+  {% if item.current %}
+  <span class="current">{{ item.label }}</span>
+  {% else %}
+  <a href="{{ item.url }}">{{ item.label }}</a>
+  {% endif %}
+{% endfor %}
+</nav>
+{% endif %}

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ book.title }} — читалка</title>
+<link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+<link rel="stylesheet" href="/static/reader.css?v={{ asset_version }}">
+</head>
+<body class="reader-body" data-book-id="{{ book.id }}" data-book-title="{{ book.title }}">
+<header class="reader-toolbar">
+  <a class="reader-back" href="/ui/books/{{ book.id }}" title="Назад к книге">←</a>
+  <div class="reader-heading">
+    <div class="reader-book-title">{{ book.title }}</div>
+    <div class="reader-book-author">{{ book.authors }}</div>
+  </div>
+  <div class="reader-tools">
+    <div class="reader-modes" role="group" aria-label="Режим чтения">
+      <button type="button" class="reader-mode" data-reader-mode="scroll" title="Обычная прокрутка">Прокрутка</button>
+      <button type="button" class="reader-mode" data-reader-mode="single" title="Одна страница">1 стр.</button>
+      <button type="button" class="reader-mode" data-reader-mode="spread" title="Две страницы">2 стр.</button>
+    </div>
+    <button type="button" class="reader-tool" id="reader-toc-toggle" title="Оглавление">☰</button>
+    <button type="button" class="reader-tool" id="reader-settings-toggle" title="Настройки">Aa</button>
+    <button type="button" class="reader-tool" id="reader-fullscreen" title="На весь экран">⛶</button>
+  </div>
+</header>
+<div class="reader-progress"><div id="reader-progress-bar"></div></div>
+<main class="reader-viewport" id="reader-viewport">
+  <button type="button" class="reader-side reader-side-prev" data-reader-prev aria-label="Предыдущая страница">‹</button>
+  <article class="reader-flow reader-scroll" id="reader-flow">
+    {% if content %}{{ content|safe }}{% else %}<p class="reader-empty">Текст книги не найден.</p>{% endif %}
+  </article>
+  <button type="button" class="reader-side reader-side-next" data-reader-next aria-label="Следующая страница">›</button>
+</main>
+<aside class="reader-panel reader-toc" id="reader-toc" hidden>
+  <div class="reader-panel-head">
+    <h2>Оглавление</h2>
+    <button type="button" class="reader-panel-close" data-reader-close="toc" aria-label="Закрыть">×</button>
+  </div>
+  {% if toc %}
+  <nav class="reader-toc-list">
+    {% for item in toc %}<a href="#{{ item.id }}" data-reader-anchor="{{ item.id }}" class="reader-toc-level-{{ item.level }}">{{ item.title }}</a>{% endfor %}
+  </nav>
+  {% else %}
+  <p class="reader-muted">Оглавление не найдено.</p>
+  {% endif %}
+</aside>
+<aside class="reader-panel reader-settings" id="reader-settings" hidden>
+  <div class="reader-panel-head">
+    <h2>Настройки</h2>
+    <button type="button" class="reader-panel-close" data-reader-close="settings" aria-label="Закрыть">×</button>
+  </div>
+  <div class="reader-setting-row">
+    <span>Размер шрифта</span>
+    <div class="reader-stepper">
+      <button type="button" data-reader-font="-1">−</button>
+      <span id="reader-font-value">18</span>
+      <button type="button" data-reader-font="1">+</button>
+    </div>
+  </div>
+  <div class="reader-setting-row">
+    <span>Межстрочный интервал</span>
+    <div class="reader-stepper">
+      <button type="button" data-reader-line="-1">−</button>
+      <span id="reader-line-value">1.65</span>
+      <button type="button" data-reader-line="1">+</button>
+    </div>
+  </div>
+  <div class="reader-setting-row reader-theme-row">
+    <span>Тема</span>
+    <div class="reader-themes">
+      <button type="button" class="reader-theme" data-reader-theme="light">Светлая</button>
+      <button type="button" class="reader-theme" data-reader-theme="sepia">Сепия</button>
+      <button type="button" class="reader-theme" data-reader-theme="dark">Тёмная</button>
+    </div>
+  </div>
+</aside>
+<footer class="reader-footer">
+  <button type="button" class="reader-page-btn" id="reader-prev" aria-label="Назад">←</button>
+  <span id="reader-page-label" class="reader-page-label"></span>
+  <button type="button" class="reader-page-btn" id="reader-next" aria-label="Вперёд">→</button>
+</footer>
+<div id="reader-toast" class="reader-toast" role="status" hidden></div>
+<button type="button" id="reader-exit-fullscreen" class="reader-exit-fullscreen" hidden>Выйти из полноэкранного режима</button>
+<script src="/static/reader.js?v={{ asset_version }}" defer></script>
+</body>
+</html>

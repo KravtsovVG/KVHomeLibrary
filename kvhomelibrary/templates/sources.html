@@ -1,0 +1,52 @@
+<h1>Источники OPDS</h1>
+<div class="muted">Чужие OPDS-каталоги: можно просматривать и скачивать FB2 в свою библиотеку.</div>
+<div style="margin-top:16px">
+{% if sources %}
+{% for source in sources %}
+<div class="panel" style="margin-bottom:12px">
+  <div class="page-head">
+    <div class="grow">
+      <h2 style="margin:0 0 4px">{{ source.name }}</h2>
+      <div class="small muted">{{ source.status }} · проверен: {{ source.last_checked_at }}</div>
+      <div class="small"><a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.url }}</a></div>
+      {% if source.last_error %}<div class="small" style="color:var(--danger)">Ошибка: {{ source.last_error }}</div>{% endif %}
+    </div>
+    <div class="book-actions" style="margin:0">
+      <a class="btn" href="{{ source.open_url }}">Открыть каталог</a>
+      <a class="btn secondary" href="{{ source.edit_url }}">Изменить</a>
+      <form method="post" action="{{ source.delete_url }}" class="inline"
+            onsubmit="return confirm('Удалить источник? Книги в каталоге останутся.');">
+        <button class="btn danger" type="submit">Удалить</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty">Источников пока нет. Добавьте первый OPDS-каталог ниже.</div>
+{% endif %}
+</div>
+<div class="panel" style="margin-top:18px">
+  <h2 style="margin-top:0">Добавить источник</h2>
+  <form method="post" action="/admin/sources">
+    <div class="form-grid">
+      <div>
+        <label for="s-name">Название *</label>
+        <input id="s-name" name="name" required placeholder="Например, ЛитРес или Calibre">
+      </div>
+      <div>
+        <label for="s-url">Адрес OPDS *</label>
+        <input id="s-url" name="url" type="url" required placeholder="https://example.org/opds">
+      </div>
+      <div>
+        <label for="s-user">Логин (если нужен)</label>
+        <input id="s-user" name="username" autocomplete="username">
+      </div>
+      <div>
+        <label for="s-pass">Пароль (если нужен)</label>
+        <input id="s-pass" name="password" type="password" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Добавить источник</button></div>
+  </form>
+</div>

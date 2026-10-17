@@ -1,0 +1,40 @@
+<div class="panel remote-book" style="margin-bottom:12px">
+  {% if entry.cover_image %}
+  <a class="remote-cover" href="{{ entry.external_url }}" target="_blank" rel="noopener noreferrer" title="Открыть на внешнем сайте">
+    <img src="{{ entry.cover_image }}" alt="{{ entry.title }}" loading="lazy" referrerpolicy="no-referrer">
+  </a>
+  {% else %}
+  <div class="remote-cover"><span class="cover-ph">FB2</span></div>
+  {% endif %}
+  <div class="grow">
+    <h2 style="margin:0 0 4px">{{ entry.title }}</h2>
+    <div class="muted small">{{ entry.authors }}{% if entry.series %} · {{ entry.series|safe }}{% endif %}</div>
+    {% if entry.summary_html %}
+    <div class="remote-description">{{ entry.summary_html|safe }}</div>
+    {% else %}
+    {% if entry.summary %}<div class="small muted">{{ entry.summary }}</div>{% endif %}
+    {% endif %}
+    {% if entry.categories %}
+    <div class="chips">{% for category in entry.categories %}<span class="chip">{{ category }}</span>{% endfor %}</div>
+    {% endif %}
+    {% if entry.related %}
+    <div class="remote-related">
+      {% for link in entry.related %}<a href="{{ link.url }}"{% if link.external %} target="_blank" rel="noopener noreferrer"{% endif %}>{{ link.title }}</a>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="book-actions" style="margin:0">
+    {% if entry.fb2_href %}
+    <form method="post" action="/admin/opds/download" class="inline js-download-form">
+      <input type="hidden" name="source_id" value="{{ entry.source_id }}">
+      <input type="hidden" name="href" value="{{ entry.fb2_href }}">
+      <input type="hidden" name="title" value="{{ entry.title }}">
+      <input type="hidden" name="return_url" value="{{ entry.return_url }}">
+      <button class="btn" type="submit">Скачать в каталог</button>
+      <div class="download-error form-error" role="alert" hidden></div>
+    </form>
+    {% else %}
+    <span class="chip">формат не FB2</span>
+    {% endif %}
+  </div>
+</div>

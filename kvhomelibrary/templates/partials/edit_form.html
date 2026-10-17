@@ -1,0 +1,54 @@
+<form method="post" action="/admin/books/{{ book.id }}" class="panel edit-form" id="edit-book-form">
+  <div class="form-grid">
+    <div class="full">
+      <label for="title">Название *</label>
+      <input id="title" name="title" required value="{{ book.title }}">
+    </div>
+    <div class="full">
+      <label for="annotation">Аннотация</label>
+      <textarea id="annotation" name="annotation">{{ book.annotation }}</textarea>
+    </div>
+    <div class="full">
+      <label for="authors">Авторы (через запятую)</label>
+      <input id="authors" name="authors" value="{{ book.authors_text }}" placeholder="Иван Петров, Мария Иванова">
+    </div>
+    <div class="full">
+      <label for="genres">Категории — коды FB2 через запятую</label>
+      <input id="genres" name="genres" value="{{ book.genres_text }}" placeholder="sf, detective, prose_classic">
+      <div class="small muted" style="margin-top:4px">Например: sf, sf_fantasy, detective, prose_classic.</div>
+    </div>
+    <div>
+      <label for="series">Серия</label>
+      <input id="series" name="series" value="{{ book.series_name }}">
+    </div>
+    <div>
+      <label for="series_number">Номер в серии</label>
+      <input id="series_number" name="series_number" value="{{ book.series_number }}">
+    </div>
+    <div>
+      <label for="lang">Язык</label>
+      <input id="lang" name="lang" value="{{ book.lang }}" placeholder="ru">
+    </div>
+    <div>
+      <label for="publish_year">Год</label>
+      <input id="publish_year" name="publish_year" value="{{ book.year }}" placeholder="2024">
+    </div>
+    <div>
+      <label for="publisher">Издательство</label>
+      <input id="publisher" name="publisher" value="{{ book.publisher }}">
+    </div>
+    <div>
+      <label for="city">Город</label>
+      <input id="city" name="city" value="{{ book.city }}">
+    </div>
+    <div>
+      <label for="isbn">ISBN</label>
+      <input id="isbn" name="isbn" value="{{ book.isbn }}">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn" type="submit" name="action" value="save">Сохранить</button>
+    <button class="btn secondary" type="submit" name="action" value="save_close">Сохранить и закрыть</button>
+    <a class="btn secondary" href="/admin/books/{{ book.id }}" data-modal-close>Отмена</a>
+  </div>
+</form>

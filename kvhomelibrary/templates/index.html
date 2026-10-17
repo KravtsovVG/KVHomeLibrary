@@ -1,0 +1,27 @@
+<section class="hero">
+  <h1>Домашняя библиотека</h1>
+  <p>Каталог FB2 с поиском, разделами по авторам, категориям и сериям.
+  Просматривайте книги в браузере или подключайте OPDS-читалку.</p>
+  <form class="search" method="get" action="/ui/books">
+    <input type="search" name="q" placeholder="Что найти? Название, автор, серия…" aria-label="Поиск по каталогу">
+    <button type="submit">Искать</button>
+  </form>
+  <div class="hero-links">
+    <a href="/ui/books">Все книги →</a>
+    <a href="/ui/authors">Авторы →</a>
+    <a href="/ui/genres">Категории →</a>
+    <a href="/ui/series">Серии →</a>
+  </div>
+</section>
+{{ stats|safe }}
+<h2>Последние книги <span class="muted small">· <a href="/ui/books">все</a></span></h2>
+{% if latest %}
+<div class="books">
+{% for card in latest %}{% include "partials/book_card.html" %}{% endfor %}
+</div>
+{% else %}
+<div class="empty">В библиотеке пока нет книг. Запустите сканирование.</div>
+{% endif %}
+{{ authors_collection|safe }}
+{{ genres_collection|safe }}
+{{ series_collection|safe }}

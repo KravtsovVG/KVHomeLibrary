@@ -1,0 +1,5 @@
+{% if cover.image %}
+<a class="cover" href="{{ cover.link_url }}"><img src="{{ cover.image }}" alt="Обложка: {{ cover.title }}" loading="lazy"></a>
+{% else %}
+<a class="cover" href="{{ cover.link_url }}"><span class="cover-ph">KV<br>FB2</span></a>
+{% endif %}

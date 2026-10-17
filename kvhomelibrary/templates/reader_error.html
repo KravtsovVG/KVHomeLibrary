@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ошибка чтения — {{ book.title }}</title>
+<link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+</head>
+<body>
+<main style="max-width:720px;margin:60px auto;padding:0 20px">
+  <h1>Не удалось открыть книгу</h1>
+  <p class="muted">{{ book.title }}</p>
+  <div class="flash error">{{ message }}</div>
+  <p><a class="btn" href="/ui/books/{{ book.id }}">Вернуться к книге</a>
+     <a class="btn secondary" href="/ui/books">Каталог</a></p>
+</main>
+</body>
+</html>

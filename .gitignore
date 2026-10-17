@@ -1,0 +1,38 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# База, обложки и результаты сканирования
+data/
+covers/
+*.db
+*.db-wal
+*.db-shm
+
+# Временные каталоги тестов и служебные файлы
+.testtmp-*/
+.tmp/
+.pytest_cache/
+
+# Пользовательские книги в books/ (оставляем только заглушку)
+books/*
+!books/.gitkeep
+
+# Сгенерированные каталоги
+opds-export/
+
+# Локальные архивы, выгрузки OPDS и пользовательские скрипты
+*.zip
+*.log
+opds_flibusta
+run_2.bat
+
+# Настройки редакторов
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

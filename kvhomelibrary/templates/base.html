@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — KVHomeLibrary</title>
+<link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="/"><span class="brand-mark">KV</span><span>HomeLibrary</span></a>
+    <nav class="main">{% include "partials/nav.html" %}</nav>
+    <form class="search" method="get" action="/ui/books">
+      <input type="search" name="q" value="{{ q }}" placeholder="Название, автор, серия…" aria-label="Поиск книг">
+      <button type="submit">Найти</button>
+    </form>
+  </div>
+</header>
+<main>
+{{ flash|safe }}
+{{ body|safe }}
+</main>
+<footer>
+  KVHomeLibrary · <a href="/opds">OPDS-каталог</a> · <a href="/admin">Администрирование</a>
+</footer>
+<div id="modal" class="modal" hidden aria-hidden="true">
+  <div class="modal-backdrop" data-modal-close></div>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head">
+      <h2 id="modal-title">Редактирование книги</h2>
+      <button class="modal-close" type="button" data-modal-close aria-label="Закрыть">×</button>
+    </div>
+    <div id="modal-error" class="form-error" role="alert" hidden></div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script src="/static/app.js?v={{ asset_version }}" defer></script>
+</body>
+</html>
