@@ -27,6 +27,12 @@ sudo apt install -y python3 rsync curl
 python3 --version
 ```
 
+Для импорта 7Z/RAR из администрирования также установите:
+
+```bash
+sudo apt install -y p7zip-full unrar
+```
+
 Версия должна быть **3.10 или новее**. В Debian 12 это Python 3.11,
 в Debian 13 — 3.13.
 
@@ -59,7 +65,7 @@ cd /opt/kvhomelibrary
 python3 -m kvhomelibrary --version
 ```
 
-Должно вывести `kvhomelibrary 0.6.9` (или более новую версию).
+Должно вывести `kvhomelibrary 0.7.0` (или более новую версию).
 
 ## 3. Пользователь и каталоги
 

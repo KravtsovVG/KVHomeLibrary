@@ -19,6 +19,12 @@ sudo bash /tmp/kvhl-install.sh
 Скрипт установит `git`/Python при необходимости, создаст пользователя `kvhome`,
 каталоги, systemd-юнит, выполнит первое сканирование и запустит демон.
 
+Для импорта 7Z/RAR установите внешний распаковщик:
+
+```bash
+sudo apt install p7zip-full unrar
+```
+
 ### Пути по умолчанию
 
 | Что | Где |
@@ -92,6 +98,7 @@ sudo bash /opt/kvhomelibrary/deploy/linux/install.sh
 ## Windows
 
 Требования: Windows 10/11, Git for Windows, Python 3.10+ в `PATH`.
+Для импорта 7Z/RAR установите [7-Zip](https://www.7-zip.org/).
 
 Откройте PowerShell:
 

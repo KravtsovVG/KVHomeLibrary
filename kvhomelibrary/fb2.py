@@ -102,6 +102,7 @@ class ParsedBook:
     file_size: int = 0
     source_path: str = ""
     file_name: str = ""
+    format: str = "fb2"
 
 
 def _local(tag: str) -> str:

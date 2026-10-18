@@ -22,6 +22,30 @@
       <label class="small"><input type="checkbox" name="prune" value="1"> Удалять из базы книги, файлы которых исчезли</label>
       <div class="form-actions"><button class="btn" type="submit">Сканировать</button></div>
     </form>
+
+    <form method="post" action="/admin/archive-scan" class="panel" style="margin-top:14px">
+      <h2 style="margin-top:0">Импорт из архивов</h2>
+      <p class="muted small">Берутся ZIP, 7Z и RAR. Найденные книги упаковываются в ZIP
+      в <code>{{ library_path }}/imported</code>. Для 7Z/RAR нужен 7-Zip или unrar.</p>
+      {% if archive_summary %}<div class="okbox">{{ archive_summary }}</div>{% endif %}
+      <label class="field-label" for="archive-path">Каталог с архивами</label>
+      <input id="archive-path" name="path" value="{{ library_path }}" required>
+      <div class="form-grid" style="margin-top:10px">
+        <label>С даты создания архива
+          <input type="date" name="date_from">
+        </label>
+        <label>По дату создания архива
+          <input type="date" name="date_to">
+        </label>
+      </div>
+      <div class="small" style="margin-top:10px">Типы файлов:</div>
+      <label class="small"><input type="checkbox" name="types" value="fb2" checked> FB2</label>
+      <label class="small"><input type="checkbox" name="types" value="pdf" checked> PDF</label>
+      <label class="small"><input type="checkbox" name="types" value="djvu" checked> DjVu</label>
+      <label class="small"><input type="checkbox" name="types" value="epub" checked> EPUB</label>
+      <label class="small" style="display:block;margin-top:8px"><input type="checkbox" name="recursive" value="1" checked> Обходить подпапки</label>
+      <div class="form-actions"><button class="btn" type="submit">Сканировать архивы</button></div>
+    </form>
     {% else %}
     <div class="panel">
       <h2 style="margin-top:0">Сканирование библиотеки</h2>

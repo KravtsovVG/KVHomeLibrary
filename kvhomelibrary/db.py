@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS books (
     file_size     INTEGER NOT NULL DEFAULT 0,
     file_mtime    REAL NOT NULL DEFAULT 0,
     file_hash     TEXT NOT NULL UNIQUE,
+    format        TEXT NOT NULL DEFAULT 'fb2',
     title         TEXT NOT NULL,
     sort_key      TEXT NOT NULL,
     annotation    TEXT NOT NULL DEFAULT '',
@@ -169,6 +170,14 @@ def init_db(path: str | Path) -> Path:
     conn = connect_db(db_path)
     try:
         conn.executescript(SCHEMA)
+        columns = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(books)").fetchall()
+        }
+        if "format" not in columns:
+            conn.execute(
+                "ALTER TABLE books ADD COLUMN format TEXT NOT NULL DEFAULT 'fb2'"
+            )
         try:
             conn.executescript(FTS_SCHEMA)
         except sqlite3.OperationalError:
@@ -234,6 +243,7 @@ class BookRef:
     file_name: str = ""
     file_path: str = ""
     file_size: int = 0
+    format: str = "fb2"
     added_at: str = ""
     updated_at: str = ""
     authors: list[AuthorRef] = field(default_factory=list)
@@ -476,6 +486,7 @@ def upsert_book(
             book.file_size,
             mtime,
             book.file_hash,
+            book.format or "fb2",
             book.title,
             book.sort_key,
             book.annotation,
@@ -502,12 +513,12 @@ def upsert_book(
             cur = conn.execute(
                 """
                 INSERT INTO books(
-                    file_path, file_name, file_size, file_mtime, file_hash,
+                    file_path, file_name, file_size, file_mtime, file_hash, format,
                     title, sort_key, annotation, keywords, lang, src_lang,
                     book_date, publisher, city, publish_year, isbn, doc_id,
                     doc_version, doc_date, translators, series_id, series_number,
                     cover_path, cover_mime, added_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (*values[:-1], now, now),
             )
@@ -518,7 +529,7 @@ def upsert_book(
                 """
                 UPDATE books SET
                     file_path = ?, file_name = ?, file_size = ?, file_mtime = ?,
-                    file_hash = ?, title = ?, sort_key = ?, annotation = ?,
+                    file_hash = ?, format = ?, title = ?, sort_key = ?, annotation = ?,
                     keywords = ?, lang = ?, src_lang = ?, book_date = ?,
                     publisher = ?, city = ?, publish_year = ?, isbn = ?,
                     doc_id = ?, doc_version = ?, doc_date = ?, translators = ?,
@@ -706,6 +717,7 @@ def _book_from_row(conn: sqlite3.Connection, row: sqlite3.Row) -> BookRef:
         file_name=str(row["file_name"] or ""),
         file_path=str(row["file_path"] or ""),
         file_size=int(row["file_size"] or 0),
+        format=str(row["format"] or "fb2"),
         added_at=str(row["added_at"] or ""),
         updated_at=str(row["updated_at"] or ""),
         authors=authors,

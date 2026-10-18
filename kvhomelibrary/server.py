@@ -8,16 +8,18 @@ import hmac
 import json
 import logging
 import re
-import shutil
 import socket
 import sqlite3
 from dataclasses import dataclass
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Mapping
-from urllib.parse import parse_qs, quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 
 from . import __version__, web
+from .archive_scanner import ArchiveError, scan_archives
+from .book_formats import format_mime, read_book_payload
 from .db import (
     connect_db,
     count_authors,
@@ -661,6 +663,64 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                     self._redirect(f"/admin/books/{book_id}?error=book", 303)
             return
 
+        if path == "/admin/archive-scan":
+            library = self.config.library_path
+            if library is None:
+                self._redirect("/admin?error=no_library", 303)
+                return
+            directory = value("path")
+            if not directory:
+                self._redirect(
+                    "/admin?" + urlencode({"error": "archive_scan", "archive_summary": "Не указан каталог с архивами."}),
+                    303,
+                )
+                return
+            try:
+                date_from = date.fromisoformat(value("date_from")) if value("date_from") else None
+                date_to = date.fromisoformat(value("date_to")) if value("date_to") else None
+            except ValueError:
+                self._redirect(
+                    "/admin?" + urlencode({"error": "archive_scan", "archive_summary": "Неверный формат даты. Используйте ГГГГ-ММ-ДД."}),
+                    303,
+                )
+                return
+            types = [item for item in form.get("types", []) if item]
+            try:
+                report = scan_archives(
+                    self.config.db_path,
+                    directory,
+                    file_types=types,
+                    date_from=date_from,
+                    date_to=date_to,
+                    recursive="recursive" in form,
+                    library_dir=library,
+                    covers_dir=self.config.covers_dir,
+                )
+            except ArchiveError as exc:
+                LOGGER.warning("Ошибка импорта архивов: %s", exc)
+                self._redirect(
+                    "/admin?" + urlencode({"error": "archive_scan", "archive_summary": str(exc)}),
+                    303,
+                )
+                return
+            except Exception as exc:
+                LOGGER.exception("Ошибка импорта архивов")
+                self._redirect(
+                    "/admin?" + urlencode({"error": "archive_scan", "archive_summary": str(exc)}),
+                    303,
+                )
+                return
+            self._redirect(
+                "/admin?" + urlencode(
+                    {
+                        "notice": "archive_scanned",
+                        "archive_summary": report.summary(),
+                    }
+                ),
+                303,
+            )
+            return
+
         if path == "/admin/scan":
             library = self.config.library_path
             if library is None:
@@ -979,7 +1039,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
 
     def _download(self, conn, book_id: int, *, head: bool) -> None:
         row = conn.execute(
-            "SELECT file_path, file_name FROM books WHERE id = ?", (book_id,)
+            "SELECT file_path, file_name, format FROM books WHERE id = ?", (book_id,)
         ).fetchone()
         if row is None:
             self._send_text("Книга не найдена", 404, head=head)
@@ -989,14 +1049,21 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
             self._send_text("Файл книги отсутствует", 404, head=head)
             return
 
+        fmt = str(row["format"] or "fb2")
         name = str(row["file_name"] or file_path.name)
-        content_type = "application/fb2+zip" if name.lower().endswith(".zip") else "application/fb2+xml"
-        ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", name) or "book.fb2"
+        try:
+            data, inner_name, content_type = read_book_payload(file_path, fmt, name)
+        except (OSError, ValueError) as exc:
+            LOGGER.warning("Не удалось прочитать файл книги %s: %s", file_path, exc)
+            self._send_text("Не удалось прочитать файл книги", 500, head=head)
+            return
+        name = inner_name or name
+        ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", name) or f"book.{fmt}"
         disposition = (
             f'attachment; filename="{ascii_name}"; '
             f"filename*=UTF-8''{quote(name, safe='')}"
         )
-        size = file_path.stat().st_size
+        size = len(data)
 
         self.send_response(200)
         self.send_header("Content-Type", content_type)
@@ -1006,8 +1073,8 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         if not head:
-            with file_path.open("rb") as source:
-                shutil.copyfileobj(source, self.wfile)
+            self.wfile.write(data)
+
 
     def _static_file(self, name: str, *, head: bool) -> None:
         types = {

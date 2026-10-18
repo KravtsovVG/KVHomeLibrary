@@ -32,6 +32,7 @@ from .db import (    AuthorRef,
 )
 from .genres import genre_synonyms
 from .fb2 import Fb2Error, parse_fb2_file
+from .book_formats import format_label
 from .opds_client import (
     Feed,
     FeedEntry,
@@ -55,6 +56,7 @@ _NOTICES = {
     "source_saved": "Источник сохранён.",
     "source_deleted": "Источник удалён.",
     "downloaded": "Книга скачана в каталог и добавлена в библиотеку.",
+    "archive_scanned": "Импорт из архивов завершён.",
 }
 _ERRORS = {
     "book": "Книга не найдена.",
@@ -67,6 +69,7 @@ _ERRORS = {
     "source_exists": "Источник с таким адресом уже существует.",
     "download": "Не удалось скачать книгу из источника.",
     "download_parse": "Файл скачан в библиотеку, но не распознан как FB2.",
+    "archive_scan": "Не удалось импортировать архивы. Проверьте путь, даты и наличие 7-Zip/unrar.",
 }
 
 
@@ -228,6 +231,9 @@ def _card(book: BookRef, *, admin: bool = False) -> dict[str, object]:
         "year": book.year,
         "annotation": _snippet(book.annotation),
         "genres": _genres(book),
+        "format": book.format,
+        "format_label": format_label(book.format),
+        "is_fb2": book.format == "fb2",
         "admin": admin,
         "edit_url": f"/admin/books/{book.id}",
         "delete_url": f"/admin/books/{book.id}/delete",
@@ -509,6 +515,7 @@ def book_page(
         {"label": "ISBN", "text": book.isbn or "—"},
         {"label": "Язык", "text": book.lang or "—"},
         {"label": "Категории", "html": _genres(book) or _esc("—")},
+        {"label": "Формат", "text": format_label(book.format)},
         {
             "label": "Файл",
             "url": f"/download/{book.id}",
@@ -530,6 +537,8 @@ def book_page(
             "cover": _cover(book),
             "meta": meta,
             "annotation": book.annotation,
+            "format_label": format_label(book.format),
+            "is_fb2": book.format == "fb2",
             "admin": admin,
             "edit_url": f"/admin/books/{book.id}",
             "delete_url": f"/admin/books/{book.id}/delete",
@@ -589,6 +598,7 @@ def admin_page(
 ) -> bytes:
     stats = get_stats(conn)
     errors = [dict(row) for row in list_parse_errors(conn, limit=20)]
+    archive_summary = (query.get("archive_summary", [""])[0] or "").strip()[:2000]
     body = render(
         "admin.html",
         stats=_stats_html(stats),
@@ -597,6 +607,7 @@ def admin_page(
         library_path=str(library_path) if library_path else "",
         sources_count=count_opds_sources(conn),
         errors=errors,
+        archive_summary=archive_summary,
     )
     return _layout("Администрирование", body, active="admin", notice=notice, error=error)
 
@@ -776,6 +787,11 @@ def reader_page(conn, book_id: int) -> bytes | None:
     book = get_book(conn, book_id)
     if book is None:
         return None
+    if book.format != "fb2":
+        return reader_error_page(
+            book,
+            f"Встроенная читалка поддерживает только FB2. Формат книги: {format_label(book.format)}.",
+        )
     try:
         parsed = parse_fb2_file(book.file_path)
     except Fb2Error as exc:

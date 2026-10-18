@@ -25,6 +25,7 @@ from urllib.parse import urlencode
 import xml.etree.ElementTree as ET
 
 from . import __version__
+from .book_formats import format_mime
 from .db import (
     AuthorRef,
     BookRef,
@@ -235,7 +236,7 @@ def _book_entry(feed: ET.Element, book: BookRef, base_url: str) -> ET.Element:
         _link(entry, "http://opds-spec.org/image", cover_url, mime)
         _link(entry, "http://opds-spec.org/image/thumbnail", cover_url, mime)
 
-    file_type = FB2_ZIP_TYPE if book.is_zip else FB2_TYPE
+    file_type = format_mime(book.format)
     attrs = {
         "rel": "http://opds-spec.org/acquisition",
         "href": _url(base_url, f"/download/{book.id}"),
