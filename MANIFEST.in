@@ -3,3 +3,4 @@ recursive-include kvhomelibrary/static *.css *.js
 include README.md
 include DEBIAN.md
 include LICENSE
+include THIRD_PARTY_NOTICES.md

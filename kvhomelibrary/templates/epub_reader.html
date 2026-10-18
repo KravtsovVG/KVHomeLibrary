@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ book.title }} — EPUB</title>
+<link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+<link rel="stylesheet" href="/static/reader.css?v={{ asset_version }}">
+<link rel="stylesheet" href="/static/epub_reader.css?v={{ asset_version }}">
+</head>
+<body class="reader-body epub-reader-body" data-book-id="{{ book.id }}" data-book-url="/book-file/{{ book.id }}">
+<header class="reader-toolbar">
+  <a class="reader-back" href="/ui/books/{{ book.id }}" title="Назад к книге">←</a>
+  <div class="reader-heading">
+    <div class="reader-book-title">{{ book.title }}</div>
+    <div class="reader-book-author">{{ book.authors }}</div>
+  </div>
+  <div class="reader-tools">
+    <div class="reader-modes" role="group" aria-label="Режим чтения">
+      <button type="button" class="reader-mode" data-epub-flow="paginated" title="Страницы">Страницы</button>
+      <button type="button" class="reader-mode" data-epub-flow="scrolled" title="Прокрутка">Прокрутка</button>
+    </div>
+    <button type="button" class="reader-tool" id="epub-toc-toggle" title="Оглавление">☰</button>
+    <button type="button" class="reader-tool" id="epub-settings-toggle" title="Настройки">Aa</button>
+    <button type="button" class="reader-tool" id="epub-fullscreen" title="На весь экран">⛶</button>
+  </div>
+</header>
+<div class="reader-progress"><div id="epub-progress-bar"></div></div>
+<main class="epub-viewport" id="epub-viewport">
+  <div id="epub-viewer" class="epub-viewer"></div>
+</main>
+<aside class="reader-panel reader-toc" id="epub-toc" hidden>
+  <div class="reader-panel-head">
+    <h2>Оглавление</h2>
+    <button type="button" class="reader-panel-close" data-epub-close aria-label="Закрыть">×</button>
+  </div>
+  <nav class="reader-toc-list" id="epub-toc-list">
+    <p class="reader-muted">Загрузка…</p>
+  </nav>
+</aside>
+<aside class="reader-panel reader-settings" id="epub-settings" hidden>
+  <div class="reader-panel-head">
+    <h2>Настройки</h2>
+    <button type="button" class="reader-panel-close" data-epub-close aria-label="Закрыть">×</button>
+  </div>
+  <div class="reader-setting-row">
+    <span>Размер шрифта</span>
+    <div class="reader-stepper">
+      <button type="button" data-epub-font="-10">−</button>
+      <span id="epub-font-value">100%</span>
+      <button type="button" data-epub-font="10">+</button>
+    </div>
+  </div>
+  <div class="reader-setting-row reader-theme-row">
+    <span>Тема</span>
+    <div class="reader-themes">
+      <button type="button" class="reader-theme" data-epub-theme="light">Светлая</button>
+      <button type="button" class="reader-theme" data-epub-theme="sepia">Сепия</button>
+      <button type="button" class="reader-theme" data-epub-theme="dark">Тёмная</button>
+    </div>
+  </div>
+</aside>
+<button type="button" id="epub-exit-fullscreen" class="reader-exit-fullscreen" hidden>Выйти из полноэкранного режима</button>
+<footer class="reader-footer">
+  <button type="button" class="reader-page-btn" id="epub-prev" aria-label="Назад">←</button>
+  <span id="epub-page-label" class="reader-page-label">EPUB</span>
+  <button type="button" class="reader-page-btn" id="epub-next" aria-label="Вперёд">→</button>
+</footer>
+<div id="epub-toast" class="reader-toast" role="status" hidden></div>
+<script src="/static/jszip.min.js?v={{ asset_version }}" defer></script>
+<script src="/static/epub.min.js?v={{ asset_version }}" defer></script>
+<script src="/static/epub_reader.js?v={{ asset_version }}" defer></script>
+</body>
+</html>

@@ -8,7 +8,7 @@
     <div class="ann">{{ card.annotation }}</div>
     <div class="chips">{{ card.genres|safe }}</div>
     <div class="book-actions">
-      {% if card.is_fb2 %}<a class="btn small" href="/read/{{ card.id }}">Читать</a>{% endif %}
+      {% if card.can_read %}<a class="btn small" href="/read/{{ card.id }}">Читать</a>{% endif %}
       <a class="btn secondary small" href="/download/{{ card.id }}">Скачать {{ card.format_label }}</a>
       <a class="btn secondary small" href="{{ card.url }}">Подробнее</a>
       {% if card.admin %}

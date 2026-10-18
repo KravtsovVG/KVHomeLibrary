@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kvhomelibrary"
-version = "0.7.0"
+version = "0.8.0"
 description = "Домашняя библиотека FB2 с OPDS-каталогом, веб-интерфейсом и внешними OPDS-источниками"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -234,6 +234,7 @@ def _card(book: BookRef, *, admin: bool = False) -> dict[str, object]:
         "format": book.format,
         "format_label": format_label(book.format),
         "is_fb2": book.format == "fb2",
+        "can_read": book.format in {"fb2", "epub"},
         "admin": admin,
         "edit_url": f"/admin/books/{book.id}",
         "delete_url": f"/admin/books/{book.id}/delete",
@@ -539,6 +540,7 @@ def book_page(
             "annotation": book.annotation,
             "format_label": format_label(book.format),
             "is_fb2": book.format == "fb2",
+            "can_read": book.format in {"fb2", "epub"},
             "admin": admin,
             "edit_url": f"/admin/books/{book.id}",
             "delete_url": f"/admin/books/{book.id}/delete",
@@ -787,10 +789,12 @@ def reader_page(conn, book_id: int) -> bytes | None:
     book = get_book(conn, book_id)
     if book is None:
         return None
+    if book.format == "epub":
+        return epub_reader_page(book)
     if book.format != "fb2":
         return reader_error_page(
             book,
-            f"Встроенная читалка поддерживает только FB2. Формат книги: {format_label(book.format)}.",
+            f"Встроенная читалка поддерживает только FB2 и EPUB. Формат книги: {format_label(book.format)}.",
         )
     try:
         parsed = parse_fb2_file(book.file_path)
@@ -802,6 +806,16 @@ def reader_page(conn, book_id: int) -> bytes | None:
         book={"id": book.id, "title": book.title, "authors": authors},
         content=mark_safe(parsed.content_html),
         toc=parsed.toc,
+        asset_version=__version__,
+    )
+    return body.encode("utf-8")
+
+
+def epub_reader_page(book: BookRef) -> bytes:
+    authors = ", ".join(author.name for author in book.authors) or "Автор не указан"
+    body = render(
+        "epub_reader.html",
+        book={"id": book.id, "title": book.title, "authors": authors},
         asset_version=__version__,
     )
     return body.encode("utf-8")

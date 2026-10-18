@@ -9,7 +9,7 @@
   {{ book.cover|safe }}
   <div>
     <div class="book-actions" style="margin-top:0">
-      {% if book.is_fb2 %}<a class="btn" href="/read/{{ book.id }}">Читать</a>{% endif %}
+      {% if book.can_read %}<a class="btn" href="/read/{{ book.id }}">Читать</a>{% endif %}
       <a class="btn secondary" href="/download/{{ book.id }}">Скачать {{ book.format_label }}</a>
       <a class="btn secondary" href="/opds/books/{{ book.id }}">Карточка OPDS</a>
       {% if book.admin %}

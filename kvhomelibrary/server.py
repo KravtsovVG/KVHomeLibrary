@@ -73,6 +73,7 @@ _AUTHOR_PATH_RE = re.compile(r"^/opds/authors/(\d+)$")
 _GENRE_PATH_RE = re.compile(r"^/opds/genres/(\d+)$")
 _SERIES_PATH_RE = re.compile(r"^/opds/series/(\d+)$")
 _DOWNLOAD_PATH_RE = re.compile(r"^/download/(\d+)$")
+_BOOK_FILE_PATH_RE = re.compile(r"^/book-file/(\d+)$")
 _COVER_PATH_RE = re.compile(r"^/covers/(\d+)$")
 _UI_BOOK_PATH_RE = re.compile(r"^/ui/books/(\d+)$")
 _READ_PATH_RE = re.compile(r"^/read/(\d+)$")
@@ -931,6 +932,10 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                 ACQ_TYPE,
                 head=head,
             )
+        elif _BOOK_FILE_PATH_RE.match(path):
+            self._book_file(
+                conn, int(_BOOK_FILE_PATH_RE.match(path).group(1)), head=head  # type: ignore[union-attr]
+            )
         elif _DOWNLOAD_PATH_RE.match(path):
             self._download(
                 conn, int(_DOWNLOAD_PATH_RE.match(path).group(1)), head=head  # type: ignore[union-attr]
@@ -1037,6 +1042,41 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
             return
         self._send_bytes(single_book_feed(conn, base_url, book), ACQ_TYPE, head=head)
 
+    def _book_file(self, conn, book_id: int, *, head: bool) -> None:
+        row = conn.execute(
+            "SELECT file_path, file_name, format FROM books WHERE id = ?", (book_id,)
+        ).fetchone()
+        if row is None:
+            self._send_text("Книга не найдена", 404, head=head)
+            return
+        file_path = Path(row["file_path"])
+        if not file_path.is_file():
+            self._send_text("Файл книги отсутствует", 404, head=head)
+            return
+        fmt = str(row["format"] or "fb2")
+        name = str(row["file_name"] or file_path.name)
+        try:
+            data, inner_name, content_type = read_book_payload(file_path, fmt, name)
+        except (OSError, ValueError) as exc:
+            LOGGER.warning("Не удалось прочитать файл книги %s: %s", file_path, exc)
+            self._send_text("Не удалось прочитать файл книги", 500, head=head)
+            return
+        name = inner_name or name
+        ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", name) or f"book.{fmt}"
+        disposition = (
+            f'inline; filename="{ascii_name}"; '
+            f"filename*=UTF-8''{quote(name, safe='')}"
+        )
+        self._send_bytes(
+            data,
+            content_type,
+            head=head,
+            extra_headers={
+                "Content-Disposition": disposition,
+                "Accept-Ranges": "none",
+            },
+        )
+
     def _download(self, conn, book_id: int, *, head: bool) -> None:
         row = conn.execute(
             "SELECT file_path, file_name, format FROM books WHERE id = ?", (book_id,)
@@ -1082,6 +1122,10 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
             "app.js": "application/javascript; charset=utf-8",
             "reader.css": "text/css; charset=utf-8",
             "reader.js": "application/javascript; charset=utf-8",
+            "epub_reader.css": "text/css; charset=utf-8",
+            "epub_reader.js": "application/javascript; charset=utf-8",
+            "epub.min.js": "application/javascript; charset=utf-8",
+            "jszip.min.js": "application/javascript; charset=utf-8",
         }
         content_type = types.get(name)
         if content_type is None:
