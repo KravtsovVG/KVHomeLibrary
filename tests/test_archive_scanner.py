@@ -125,6 +125,24 @@ class ArchiveScannerTests(unittest.TestCase):
         self.assertEqual(second.updated, 1)
         self.assertEqual(second.imported, 0)
 
+    def test_progress_callback(self) -> None:
+        self._make_zip()
+        progress: list[tuple[int, int, int]] = []
+        report = scan_archives(
+            self.db,
+            self.source,
+            file_types=["fb2"],
+            library_dir=self.library,
+            on_progress=lambda value: progress.append(
+                (value.progress, value.archives_done, value.files_seen)
+            ),
+        )
+        self.assertEqual(report.archives_total, 1)
+        self.assertEqual(report.archives_done, 1)
+        self.assertEqual(report.progress, 100)
+        self.assertTrue(progress)
+        self.assertEqual(progress[-1][0], 100)
+
     def test_invalid_archive_is_reported(self) -> None:
         bad = self.source / "bad.zip"
         bad.write_bytes(b"not a zip")

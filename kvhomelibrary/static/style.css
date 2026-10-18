@@ -207,3 +207,23 @@ body.modal-open { overflow: hidden; }
 .btn[disabled] { opacity: .65; cursor: wait; }
 .js-download-form { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0; }
 .download-error { flex-basis: 100%; margin: 6px 0 0; }
+
+.import-progress { margin: 12px 0 14px; }
+.import-progress-head {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 12.5px; color: var(--muted); margin-bottom: 6px;
+}
+.progress-track {
+  height: 9px; background: var(--line); border-radius: 99px;
+  overflow: hidden;
+}
+.progress-fill {
+  width: 0; height: 100%; background: var(--accent);
+  border-radius: inherit; transition: width .2s ease;
+}
+.import-progress-current {
+  margin-top: 6px; min-height: 1.2em; color: var(--muted);
+  font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.import-progress.is-error .progress-fill { background: var(--danger); }
+.import-progress.is-done .progress-fill { background: #12b76a; }

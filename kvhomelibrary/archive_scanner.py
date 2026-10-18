@@ -15,7 +15,7 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Callable, Iterable, Iterator
 
 from .book_formats import FORMATS, build_book
 from .db import connect_db, init_db, upsert_book
@@ -35,6 +35,10 @@ class ArchiveError(Exception):
 class ArchiveScanReport:
     directory: str
     archives_seen: int = 0
+    archives_total: int = 0
+    archives_done: int = 0
+    current_archive: str = ""
+    progress: int = 0
     archives_skipped_date: int = 0
     files_seen: int = 0
     imported: int = 0
@@ -263,6 +267,7 @@ def scan_archives(
     recursive: bool = True,
     library_dir: str | Path,
     covers_dir: str | Path | None = None,
+    on_progress: Callable[[ArchiveScanReport], None] | None = None,
 ) -> ArchiveScanReport:
     root = Path(directory).expanduser().resolve()
     if not root.is_dir():
@@ -280,20 +285,47 @@ def scan_archives(
     report = ArchiveScanReport(directory=str(root))
     init_db(db_path)
     conn = connect_db(db_path)
+
+    archives = list(_iter_archives(root, recursive, [imported]))
+    report.archives_total = len(archives)
+
+    def notify() -> None:
+        if on_progress is None:
+            return
+        try:
+            on_progress(report)
+        except Exception:
+            # Прогресс не должен ломать сам импорт.
+            pass
+
+    def finish_archive() -> None:
+        report.archives_done += 1
+        report.progress = (
+            100 if not report.archives_total
+            else round(100 * report.archives_done / report.archives_total)
+        )
+        notify()
+
+    notify()
     try:
-        for archive_path in _iter_archives(root, recursive, [imported]):
+        for archive_path in archives:
             report.archives_seen += 1
+            report.current_archive = archive_path.name
+            notify()
             try:
                 created = archive_created_date(archive_path)
             except OSError as exc:
                 report.failed += 1
                 report.errors.append(f"{archive_path.name}: {exc}")
+                finish_archive()
                 continue
             if date_from and created < date_from:
                 report.archives_skipped_date += 1
+                finish_archive()
                 continue
             if date_to and created > date_to:
                 report.archives_skipped_date += 1
+                finish_archive()
                 continue
 
             try:
@@ -301,10 +333,12 @@ def scan_archives(
                     fmt = _entry_format(name)
                     if fmt not in requested:
                         report.skipped_types += 1
+                        notify()
                         continue
                     if len(data) > MAX_ENTRY_BYTES:
                         report.failed += 1
                         report.errors.append(f"{archive_path.name}/{name}: файл слишком большой")
+                        notify()
                         continue
                     report.files_seen += 1
                     try:
@@ -328,9 +362,14 @@ def scan_archives(
                     except (Fb2Error, ArchiveError, OSError, ValueError) as exc:
                         report.failed += 1
                         report.errors.append(f"{archive_path.name}/{name}: {exc}")
+                    notify()
             except ArchiveError as exc:
                 report.failed += 1
                 report.errors.append(f"{archive_path.name}: {exc}")
+            finish_archive()
     finally:
         conn.close()
+    report.current_archive = ""
+    report.progress = 100
+    notify()
     return report

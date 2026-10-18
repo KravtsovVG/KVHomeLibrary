@@ -194,4 +194,102 @@
       }
     }
   });
+
+  const archiveForm = document.getElementById("archive-import-form");
+  if (archiveForm) {
+    const progressBox = document.getElementById("archive-progress");
+    const progressBar = document.getElementById("archive-progress-bar");
+    const progressTrack = progressBox ? progressBox.querySelector(".progress-track") : null;
+    const progressText = document.getElementById("archive-progress-text");
+    const progressPercent = document.getElementById("archive-progress-percent");
+    const progressCurrent = document.getElementById("archive-progress-current");
+    const submitButton = document.getElementById("archive-submit");
+
+    function setArchiveProgress(job) {
+      const percent = Math.max(0, Math.min(100, Number(job.progress) || 0));
+      if (progressBar) progressBar.style.width = percent + "%";
+      if (progressTrack) progressTrack.setAttribute("aria-valuenow", String(percent));
+      if (progressPercent) progressPercent.textContent = percent + "%";
+      if (progressText) {
+        progressText.textContent =
+          "Архивов: " + (job.archives_done || 0) + " / " + (job.archives_total || 0) +
+          " · файлов: " + (job.files_seen || 0) +
+          " · добавлено: " + (job.imported || 0) +
+          " · обновлено: " + (job.updated || 0) +
+          " · ошибок: " + (job.failed || 0);
+      }
+      if (progressCurrent) {
+        progressCurrent.textContent = job.current_archive
+          ? "Сейчас: " + job.current_archive
+          : (job.state === "queued" ? "Задача в очереди…" : "Завершаю…");
+      }
+    }
+
+    function finishArchiveProgress(message, isError) {
+      if (progressBox) {
+        progressBox.classList.toggle("is-error", Boolean(isError));
+        progressBox.classList.toggle("is-done", !isError);
+      }
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "Сканировать архивы";
+      }
+      if (message) showToast(message, Boolean(isError));
+    }
+
+    function pollArchive(jobId) {
+      const url = "/admin/archive-scan/status?" + new URLSearchParams({ id: jobId }).toString();
+      fetch(url, { headers: { "Accept": "application/json" } })
+        .then(async function (response) {
+          if (!response.ok) throw new Error("Не удалось получить статус импорта (" + response.status + ").");
+          return response.json();
+        })
+        .then(function (job) {
+          if (!job || !job.ok) throw new Error((job && job.error) || "Задача импорта не найдена.");
+          setArchiveProgress(job);
+          if (job.state === "done") {
+            if (progressBar) progressBar.style.width = "100%";
+            if (progressPercent) progressPercent.textContent = "100%";
+            if (progressCurrent) progressCurrent.textContent = job.summary || "Импорт завершён.";
+            finishArchiveProgress(job.summary || "Импорт завершён.", false);
+            window.setTimeout(function () {
+              const summary = encodeURIComponent(job.summary || "");
+              window.location.assign("/admin?notice=archive_scanned&archive_summary=" + summary);
+            }, 900);
+            return;
+          }
+          if (job.state === "error") {
+            throw new Error(job.error || "Ошибка импорта архивов.");
+          }
+          window.setTimeout(function () { pollArchive(jobId); }, 500);
+        })
+        .catch(function (error) {
+          if (progressBox) progressBox.classList.add("is-error");
+          if (progressCurrent) progressCurrent.textContent = error.message;
+          finishArchiveProgress(error.message, true);
+        });
+    }
+
+    archiveForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (progressBox) {
+        progressBox.hidden = false;
+        progressBox.classList.remove("is-error", "is-done");
+      }
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Сканирую…";
+      }
+      setArchiveProgress({ state: "queued", progress: 0 });
+      try {
+        const payload = await postForm(archiveForm, event.submitter);
+        if (!payload.job_id) throw new Error("Сервер не вернул идентификатор задачи.");
+        pollArchive(payload.job_id);
+      } catch (error) {
+        if (progressCurrent) progressCurrent.textContent = error.message;
+        finishArchiveProgress(error.message, true);
+      }
+    });
+  }
 })();
+

@@ -8,8 +8,11 @@ import hmac
 import json
 import logging
 import re
+import secrets
 import socket
 import sqlite3
+import threading
+import time
 from dataclasses import dataclass
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -67,6 +70,120 @@ from .opds_client import OpdsError, download_fb2, fetch_feed
 from .scanner import scan_library
 
 LOGGER = logging.getLogger("kvhomelibrary.server")
+
+_ARCHIVE_JOBS: dict[str, "ArchiveImportJob"] = {}
+_ARCHIVE_JOBS_LOCK = threading.Lock()
+
+
+@dataclass
+class ArchiveImportJob:
+    id: str
+    state: str = "queued"
+    progress: int = 0
+    archives_total: int = 0
+    archives_done: int = 0
+    files_seen: int = 0
+    imported: int = 0
+    updated: int = 0
+    duplicates: int = 0
+    failed: int = 0
+    skipped_date: int = 0
+    skipped_types: int = 0
+    current_archive: str = ""
+    summary: str = ""
+    error: str = ""
+    created_at: float = 0.0
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "ok": True,
+            "job_id": self.id,
+            "state": self.state,
+            "progress": self.progress,
+            "archives_total": self.archives_total,
+            "archives_done": self.archives_done,
+            "files_seen": self.files_seen,
+            "imported": self.imported,
+            "updated": self.updated,
+            "duplicates": self.duplicates,
+            "failed": self.failed,
+            "skipped_date": self.skipped_date,
+            "skipped_types": self.skipped_types,
+            "current_archive": self.current_archive,
+            "summary": self.summary,
+            "error": self.error,
+        }
+
+
+def _archive_job_update(job: ArchiveImportJob, report) -> None:
+    with _ARCHIVE_JOBS_LOCK:
+        job.progress = report.progress
+        job.archives_total = report.archives_total
+        job.archives_done = report.archives_done
+        job.files_seen = report.files_seen
+        job.imported = report.imported
+        job.updated = report.updated
+        job.duplicates = report.duplicates
+        job.failed = report.failed
+        job.skipped_date = report.archives_skipped_date
+        job.skipped_types = report.skipped_types
+        job.current_archive = report.current_archive
+        if report.progress >= 100:
+            job.summary = report.summary()
+
+
+def get_archive_job(job_id: str) -> ArchiveImportJob | None:
+    with _ARCHIVE_JOBS_LOCK:
+        now = time.time()
+        old = [key for key, job in _ARCHIVE_JOBS.items() if now - job.created_at > 3600]
+        for key in old:
+            _ARCHIVE_JOBS.pop(key, None)
+        return _ARCHIVE_JOBS.get(job_id)
+
+
+def start_archive_job(
+    *,
+    db_path: str | Path,
+    directory: str,
+    file_types: list[str],
+    date_from: date | None,
+    date_to: date | None,
+    recursive: bool,
+    library_dir: str | Path,
+    covers_dir: str | Path | None,
+) -> str:
+    job = ArchiveImportJob(id=secrets.token_urlsafe(12), created_at=time.time())
+    with _ARCHIVE_JOBS_LOCK:
+        _ARCHIVE_JOBS[job.id] = job
+
+    def run() -> None:
+        with _ARCHIVE_JOBS_LOCK:
+            job.state = "running"
+        try:
+            report = scan_archives(
+                db_path,
+                directory,
+                file_types=file_types,
+                date_from=date_from,
+                date_to=date_to,
+                recursive=recursive,
+                library_dir=library_dir,
+                covers_dir=covers_dir,
+                on_progress=lambda value: _archive_job_update(job, value),
+            )
+            with _ARCHIVE_JOBS_LOCK:
+                job.state = "done"
+                job.progress = 100
+                job.summary = report.summary()
+                job.current_archive = ""
+        except Exception as exc:
+            LOGGER.exception("Фоновый импорт архивов завершился ошибкой")
+            with _ARCHIVE_JOBS_LOCK:
+                job.state = "error"
+                job.error = str(exc)
+
+    threading.Thread(target=run, name="kvhl-archive-import", daemon=True).start()
+    return job.id
 
 _BOOK_PATH_RE = re.compile(r"^/opds/books/(\d+)$")
 _AUTHOR_PATH_RE = re.compile(r"^/opds/authors/(\d+)$")
@@ -333,6 +450,13 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                 notice=notice,
                 error=error,
             )
+        elif path == "/admin/archive-scan/status":
+            job = get_archive_job(query.get("id", [""])[0])
+            if job is None:
+                self._send_json({"ok": False, "error": "Задача импорта не найдена."}, status=404, head=head)
+                return
+            self._send_json(job.snapshot(), head=head)
+            return
         elif path == "/admin/books":
             body = web.books_page(
                 conn, query, admin=True, notice=notice, error=error
@@ -665,27 +789,55 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/admin/archive-scan":
+            wants_json = self._wants_json() or value("ajax") == "1"
             library = self.config.library_path
             if library is None:
-                self._redirect("/admin?error=no_library", 303)
+                if wants_json:
+                    self._send_json({"ok": False, "error": "Не задан каталог с книгами."}, status=400)
+                else:
+                    self._redirect("/admin?error=no_library", 303)
                 return
             directory = value("path")
             if not directory:
-                self._redirect(
-                    "/admin?" + urlencode({"error": "archive_scan", "archive_summary": "Не указан каталог с архивами."}),
-                    303,
-                )
+                message = "Не указан каталог с архивами."
+                if wants_json:
+                    self._send_json({"ok": False, "error": message}, status=400)
+                else:
+                    self._redirect("/admin?" + urlencode({"error": "archive_scan", "archive_summary": message}), 303)
                 return
             try:
                 date_from = date.fromisoformat(value("date_from")) if value("date_from") else None
                 date_to = date.fromisoformat(value("date_to")) if value("date_to") else None
             except ValueError:
-                self._redirect(
-                    "/admin?" + urlencode({"error": "archive_scan", "archive_summary": "Неверный формат даты. Используйте ГГГГ-ММ-ДД."}),
-                    303,
-                )
+                message = "Неверный формат даты. Используйте ГГГГ-ММ-ДД."
+                if wants_json:
+                    self._send_json({"ok": False, "error": message}, status=400)
+                else:
+                    self._redirect("/admin?" + urlencode({"error": "archive_scan", "archive_summary": message}), 303)
                 return
             types = [item for item in form.get("types", []) if item]
+            if not types:
+                message = "Не выбран ни один тип файлов."
+                if wants_json:
+                    self._send_json({"ok": False, "error": message}, status=400)
+                else:
+                    self._redirect("/admin?" + urlencode({"error": "archive_scan", "archive_summary": message}), 303)
+                return
+
+            if wants_json:
+                job_id = start_archive_job(
+                    db_path=self.config.db_path,
+                    directory=directory,
+                    file_types=types,
+                    date_from=date_from,
+                    date_to=date_to,
+                    recursive="recursive" in form,
+                    library_dir=library,
+                    covers_dir=self.config.covers_dir,
+                )
+                self._send_json({"ok": True, "job_id": job_id})
+                return
+
             try:
                 report = scan_archives(
                     self.config.db_path,
