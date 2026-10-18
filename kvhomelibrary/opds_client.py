@@ -409,7 +409,7 @@ def _auth_header(username: str, password: str) -> str:
 def _request(url: str, *, username: str, password: str, accept: str) -> Request:
     _validate_url(url)
     headers = {
-        "User-Agent": "KVHomeLibrary/0.8.1 (+https://localhost)",
+        "User-Agent": "KVHomeLibrary/0.8.2 (+https://localhost)",
         "Accept": accept,
     }
     auth = _auth_header(username, password)

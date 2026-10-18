@@ -110,6 +110,19 @@ CREATE TABLE IF NOT EXISTS opds_sources (
     last_error      TEXT NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS archive_imports (
+    archive_path  TEXT PRIMARY KEY,
+    size          INTEGER NOT NULL DEFAULT 0,
+    mtime         REAL NOT NULL DEFAULT 0,
+    types         TEXT NOT NULL DEFAULT '',
+    status        TEXT NOT NULL DEFAULT 'done',
+    added         INTEGER NOT NULL DEFAULT 0,
+    updated       INTEGER NOT NULL DEFAULT 0,
+    failed        INTEGER NOT NULL DEFAULT 0,
+    processed_at  TEXT NOT NULL,
+    error         TEXT NOT NULL DEFAULT ''
+);
+
 CREATE INDEX IF NOT EXISTS idx_books_sort ON books(sort_key);
 CREATE INDEX IF NOT EXISTS idx_books_series ON books(series_id);
 CREATE INDEX IF NOT EXISTS idx_books_updated ON books(updated_at);
@@ -1360,3 +1373,59 @@ def reindex_fts(conn: sqlite3.Connection) -> int:
             )
             count += 1
     return count
+
+
+def get_archive_import(conn: sqlite3.Connection, archive_path: str):
+    return conn.execute(
+        "SELECT archive_path, size, mtime, types, status, added, updated, failed, "
+        "processed_at, error FROM archive_imports WHERE archive_path = ?",
+        (archive_path,),
+    ).fetchone()
+
+
+def save_archive_import(
+    conn: sqlite3.Connection,
+    archive_path: str,
+    *,
+    size: int,
+    mtime: float,
+    types: str,
+    status: str,
+    added: int = 0,
+    updated: int = 0,
+    failed: int = 0,
+    error: str = "",
+) -> None:
+    now = utc_now()
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO archive_imports(
+                archive_path, size, mtime, types, status,
+                added, updated, failed, processed_at, error
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(archive_path) DO UPDATE SET
+                size = excluded.size,
+                mtime = excluded.mtime,
+                types = excluded.types,
+                status = excluded.status,
+                added = excluded.added,
+                updated = excluded.updated,
+                failed = excluded.failed,
+                processed_at = excluded.processed_at,
+                error = excluded.error
+            """,
+            (
+                archive_path,
+                size,
+                mtime,
+                types,
+                status,
+                added,
+                updated,
+                failed,
+                now,
+                error[:2000],
+            ),
+        )
+

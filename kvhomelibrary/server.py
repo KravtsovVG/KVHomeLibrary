@@ -89,6 +89,7 @@ class ArchiveImportJob:
     failed: int = 0
     skipped_date: int = 0
     skipped_types: int = 0
+    skipped_processed: int = 0
     current_archive: str = ""
     summary: str = ""
     error: str = ""
@@ -109,6 +110,7 @@ class ArchiveImportJob:
             "failed": self.failed,
             "skipped_date": self.skipped_date,
             "skipped_types": self.skipped_types,
+            "skipped_processed": self.skipped_processed,
             "current_archive": self.current_archive,
             "summary": self.summary,
             "error": self.error,
@@ -127,6 +129,7 @@ def _archive_job_update(job: ArchiveImportJob, report) -> None:
         job.failed = report.failed
         job.skipped_date = report.archives_skipped_date
         job.skipped_types = report.skipped_types
+        job.skipped_processed = report.archives_skipped_processed
         job.current_archive = report.current_archive
         if report.progress >= 100:
             job.summary = report.summary()
@@ -135,7 +138,10 @@ def _archive_job_update(job: ArchiveImportJob, report) -> None:
 def get_archive_job(job_id: str) -> ArchiveImportJob | None:
     with _ARCHIVE_JOBS_LOCK:
         now = time.time()
-        old = [key for key, job in _ARCHIVE_JOBS.items() if now - job.created_at > 3600]
+        old = [
+            key for key, job in _ARCHIVE_JOBS.items()
+            if job.state in {"done", "error"} and now - job.created_at > 3600
+        ]
         for key in old:
             _ARCHIVE_JOBS.pop(key, None)
         return _ARCHIVE_JOBS.get(job_id)
@@ -151,6 +157,7 @@ def start_archive_job(
     recursive: bool,
     library_dir: str | Path,
     covers_dir: str | Path | None,
+    force: bool = False,
 ) -> str:
     job = ArchiveImportJob(id=secrets.token_urlsafe(12), created_at=time.time())
     with _ARCHIVE_JOBS_LOCK:
@@ -170,6 +177,7 @@ def start_archive_job(
                 library_dir=library_dir,
                 covers_dir=covers_dir,
                 on_progress=lambda value: _archive_job_update(job, value),
+                force=force,
             )
             with _ARCHIVE_JOBS_LOCK:
                 job.state = "done"
@@ -816,6 +824,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                     self._redirect("/admin?" + urlencode({"error": "archive_scan", "archive_summary": message}), 303)
                 return
             types = [item for item in form.get("types", []) if item]
+            force = "force" in form
             if not types:
                 message = "Не выбран ни один тип файлов."
                 if wants_json:
@@ -834,6 +843,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                     recursive="recursive" in form,
                     library_dir=library,
                     covers_dir=self.config.covers_dir,
+                    force=force,
                 )
                 self._send_json({"ok": True, "job_id": job_id})
                 return
@@ -848,6 +858,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                     recursive="recursive" in form,
                     library_dir=library,
                     covers_dir=self.config.covers_dir,
+                    force=force,
                 )
             except ArchiveError as exc:
                 LOGGER.warning("Ошибка импорта архивов: %s", exc)

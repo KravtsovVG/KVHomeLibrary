@@ -117,13 +117,24 @@ class ArchiveScannerTests(unittest.TestCase):
         )
         self.assertEqual(report.archives_skipped_date, 1)
 
-    def test_rescan_updates_existing(self) -> None:
+    def test_rescan_skips_processed_and_force_reprocesses(self) -> None:
         self._make_zip()
         first = scan_archives(self.db, self.source, file_types=["fb2"], library_dir=self.library)
         second = scan_archives(self.db, self.source, file_types=["fb2"], library_dir=self.library)
         self.assertEqual(first.imported, 1)
-        self.assertEqual(second.updated, 1)
+        self.assertEqual(second.archives_skipped_processed, 1)
         self.assertEqual(second.imported, 0)
+        self.assertEqual(second.updated, 0)
+
+        forced = scan_archives(
+            self.db,
+            self.source,
+            file_types=["fb2"],
+            library_dir=self.library,
+            force=True,
+        )
+        self.assertEqual(forced.archives_skipped_processed, 0)
+        self.assertEqual(forced.updated, 1)
 
     def test_progress_callback(self) -> None:
         self._make_zip()
@@ -142,6 +153,15 @@ class ArchiveScannerTests(unittest.TestCase):
         self.assertEqual(report.progress, 100)
         self.assertTrue(progress)
         self.assertEqual(progress[-1][0], 100)
+
+    def test_changed_type_filter_reprocesses_archive(self) -> None:
+        self._make_zip()
+        scan_archives(self.db, self.source, file_types=["fb2"], library_dir=self.library)
+        pdf = scan_archives(self.db, self.source, file_types=["pdf"], library_dir=self.library)
+        self.assertEqual(pdf.archives_skipped_processed, 0)
+        self.assertEqual(pdf.imported, 1)
+        again = scan_archives(self.db, self.source, file_types=["pdf"], library_dir=self.library)
+        self.assertEqual(again.archives_skipped_processed, 1)
 
     def test_invalid_archive_is_reported(self) -> None:
         bad = self.source / "bad.zip"

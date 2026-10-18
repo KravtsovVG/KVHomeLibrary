@@ -18,7 +18,13 @@ from pathlib import Path
 from typing import Callable, Iterable, Iterator
 
 from .book_formats import FORMATS, build_book
-from .db import connect_db, init_db, upsert_book
+from .db import (
+    connect_db,
+    get_archive_import,
+    init_db,
+    save_archive_import,
+    upsert_book,
+)
 from .fb2 import Fb2Error
 
 ARCHIVE_SUFFIXES = {".zip", ".7z", ".rar"}
@@ -40,6 +46,7 @@ class ArchiveScanReport:
     current_archive: str = ""
     progress: int = 0
     archives_skipped_date: int = 0
+    archives_skipped_processed: int = 0
     files_seen: int = 0
     imported: int = 0
     updated: int = 0
@@ -59,6 +66,8 @@ class ArchiveScanReport:
         ]
         if self.archives_skipped_date:
             parts.append(f"пропущено по дате: {self.archives_skipped_date}")
+        if self.archives_skipped_processed:
+            parts.append(f"пропущено обработанных: {self.archives_skipped_processed}")
         if self.skipped_types:
             parts.append(f"пропущено по типу: {self.skipped_types}")
         text = "; ".join(parts)
@@ -268,6 +277,7 @@ def scan_archives(
     library_dir: str | Path,
     covers_dir: str | Path | None = None,
     on_progress: Callable[[ArchiveScanReport], None] | None = None,
+    force: bool = False,
 ) -> ArchiveScanReport:
     root = Path(directory).expanduser().resolve()
     if not root.is_dir():
@@ -307,12 +317,14 @@ def scan_archives(
         notify()
 
     notify()
+    types_key = ",".join(sorted(requested))
     try:
         for archive_path in archives:
             report.archives_seen += 1
             report.current_archive = archive_path.name
             notify()
             try:
+                stat = archive_path.stat()
                 created = archive_created_date(archive_path)
             except OSError as exc:
                 report.failed += 1
@@ -328,6 +340,31 @@ def scan_archives(
                 finish_archive()
                 continue
 
+            previous = get_archive_import(conn, str(archive_path))
+            if (
+                not force
+                and previous is not None
+                and previous["status"] == "done"
+                and int(previous["size"]) == int(stat.st_size)
+                and abs(float(previous["mtime"]) - float(stat.st_mtime)) < 0.001
+                and previous["types"] == types_key
+            ):
+                report.archives_skipped_processed += 1
+                finish_archive()
+                continue
+
+            save_archive_import(
+                conn,
+                str(archive_path),
+                size=int(stat.st_size),
+                mtime=float(stat.st_mtime),
+                types=types_key,
+                status="processing",
+            )
+            archive_added = 0
+            archive_updated = 0
+            archive_failed = 0
+            archive_error = ""
             try:
                 for name, data in iter_archive_entries(archive_path):
                     fmt = _entry_format(name)
@@ -337,6 +374,7 @@ def scan_archives(
                         continue
                     if len(data) > MAX_ENTRY_BYTES:
                         report.failed += 1
+                        archive_failed += 1
                         report.errors.append(f"{archive_path.name}/{name}: файл слишком большой")
                         notify()
                         continue
@@ -355,17 +393,36 @@ def scan_archives(
                         )
                         if status == "added":
                             report.imported += 1
+                            archive_added += 1
                         elif status == "updated":
                             report.updated += 1
+                            archive_updated += 1
                         else:
                             report.duplicates += 1
                     except (Fb2Error, ArchiveError, OSError, ValueError) as exc:
                         report.failed += 1
+                        archive_failed += 1
                         report.errors.append(f"{archive_path.name}/{name}: {exc}")
+                        archive_error = str(exc)
                     notify()
             except ArchiveError as exc:
                 report.failed += 1
+                archive_failed += 1
+                archive_error = str(exc)
                 report.errors.append(f"{archive_path.name}: {exc}")
+
+            save_archive_import(
+                conn,
+                str(archive_path),
+                size=int(stat.st_size),
+                mtime=float(stat.st_mtime),
+                types=types_key,
+                status="done" if archive_failed == 0 else "failed",
+                added=archive_added,
+                updated=archive_updated,
+                failed=archive_failed,
+                error=archive_error,
+            )
             finish_archive()
     finally:
         conn.close()

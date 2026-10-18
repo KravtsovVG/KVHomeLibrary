@@ -216,6 +216,7 @@
           " · файлов: " + (job.files_seen || 0) +
           " · добавлено: " + (job.imported || 0) +
           " · обновлено: " + (job.updated || 0) +
+          " · пропущено готовых: " + (job.skipped_processed || 0) +
           " · ошибок: " + (job.failed || 0);
       }
       if (progressCurrent) {
