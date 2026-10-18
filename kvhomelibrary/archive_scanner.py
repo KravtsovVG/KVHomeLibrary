@@ -161,6 +161,7 @@ def _external_entries(path: Path) -> Iterator[tuple[str, bytes]]:
             if key == "Path":
                 flush_entry()
                 current_name = value
+                current_is_dir = value.endswith("/") or value.endswith("\\")
             elif key == "Size":
                 try:
                     current_size = int(value)
