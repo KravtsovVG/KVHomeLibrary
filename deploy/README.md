@@ -215,6 +215,61 @@ sudo apt install certbot python3-certbot-apache
 sudo certbot --apache -d library.example.com
 ```
 
+### Apache на Windows (C:\Apache24)
+
+Готовый конфиг:
+[`deploy/apache/kvhomelibrary-windows.conf`](apache/kvhomelibrary-windows.conf).
+
+```powershell
+Copy-Item .\deploy\apache\kvhomelibrary-windows.conf `
+  C:\Apache24\conf\extra\kvhomelibrary.conf
+```
+
+В `C:\Apache24\conf\httpd.conf` добавьте:
+
+```apache
+Listen 443
+Include conf/extra/kvhomelibrary.conf
+```
+
+Если уже включён `conf/extra/httpd-ssl.conf`, закомментируйте его
+`Include`, иначе будет второй `Listen 443` и конфликт VirtualHost.
+
+Замените `library.example.com` и пути к сертификатам:
+
+```text
+C:\Apache24\conf\ssl\library-fullchain.crt
+C:\Apache24\conf\ssl\library.key
+```
+
+Проверка и перезапуск:
+
+```powershell
+C:\Apache24\bin\httpd.exe -t
+Get-Service Apache2.4 | Restart-Service
+```
+
+Приложение должно слушать loopback:
+
+```powershell
+python -m kvhomelibrary serve `
+  --db "C:\KVHomeLibrary\data\library.db" `
+  --covers "C:\KVHomeLibrary\data\covers" `
+  --library "D:\Books" `
+  --host 127.0.0.1 --port 8080 `
+  --admin-password "надёжный-пароль"
+```
+
+Открывайте в Windows Firewall только 80/443.
+
+Basic Auth для `/admin`:
+
+```powershell
+C:\Apache24\bin\htpasswd.exe -c C:\Apache24\conf\kvhomelibrary.htpasswd admin
+```
+
+и раскомментируйте блок `<Location "/admin">` в конфиге.
+
 Админка: приложение получает все запросы через Apache с `127.0.0.1`,
 поэтому **обязательно** задайте `KVL_ADMIN_PASSWORD` приложения либо
 раскомментируйте Basic Auth в конфиге Apache и создайте `htpasswd`.

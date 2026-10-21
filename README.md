@@ -207,6 +207,8 @@ python -m kvhomelibrary serve --db data\library.db --admin-password "мой-па
 Планировщик заданий) описаны в [deploy/README.md](deploy/README.md).
 Для публикации через Apache с HTTPS используйте
 [deploy/apache/kvhomelibrary.conf](deploy/apache/kvhomelibrary.conf).
+Для Windows Apache (C:\Apache24) —
+[deploy/apache/kvhomelibrary-windows.conf](deploy/apache/kvhomelibrary-windows.conf).
 
 Linux, одной командой:
 
