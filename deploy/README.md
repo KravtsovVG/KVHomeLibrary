@@ -176,6 +176,49 @@ powershell -ExecutionPolicy Bypass -File .\deploy\windows\install.ps1 `
 - OPDS: `http://<IP>:8080/opds`
 - Здоровье сервиса: `http://<IP>:8080/healthz`
 
+## Apache как reverse proxy
+
+Готовый конфиг: [`deploy/apache/kvhomelibrary.conf`](apache/kvhomelibrary.conf).
+
+```bash
+sudo a2enmod proxy proxy_http headers ssl remoteip deflate http2
+
+sudo cp deploy/apache/kvhomelibrary.conf \
+  /etc/apache2/sites-available/kvhomelibrary.conf
+
+# Замените library.example.com и пути к сертификатам в файле
+sudo nano /etc/apache2/sites-available/kvhomelibrary.conf
+
+sudo a2ensite kvhomelibrary
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+Приложение должно слушать только loopback:
+
+```bash
+sudo KVL_HOST=127.0.0.1 KVL_ADMIN_PASSWORD='надёжный-пароль' \
+  bash /tmp/kvhl-install.sh
+```
+
+Откройте в firewall только 80/443, порт 8080 наружу не публикуйте.
+На RHEL/AlmaLinux при необходимости:
+
+```bash
+sudo setsebool -P httpd_can_network_connect 1
+```
+
+Сертификат Let's Encrypt:
+
+```bash
+sudo apt install certbot python3-certbot-apache
+sudo certbot --apache -d library.example.com
+```
+
+Админка: приложение получает все запросы через Apache с `127.0.0.1`,
+поэтому **обязательно** задайте `KVL_ADMIN_PASSWORD` приложения либо
+раскомментируйте Basic Auth в конфиге Apache и создайте `htpasswd`.
+
 ## Удаление
 
 Linux:

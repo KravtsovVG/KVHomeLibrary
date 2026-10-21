@@ -205,6 +205,8 @@ python -m kvhomelibrary serve --db data\library.db --admin-password "мой-па
 
 Готовые скрипты для Linux (systemd-демон) и Windows (автозапуск через
 Планировщик заданий) описаны в [deploy/README.md](deploy/README.md).
+Для публикации через Apache с HTTPS используйте
+[deploy/apache/kvhomelibrary.conf](deploy/apache/kvhomelibrary.conf).
 
 Linux, одной командой:
 
