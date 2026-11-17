@@ -5,23 +5,11 @@
   </div>
   {% if roots %}
   <div class="category-tree-body">
-    {% for root in roots %}
-    <div class="category-root">
-      <a class="category-root-link" href="{{ root.url }}">
-        <span>{{ root.label }}</span>
-        <span class="count">{{ root.books }}</span>
-      </a>
-      {% if root.children %}
-      <div class="category-children">
-        {% for child in root.children %}
-        <a class="category-child-link" href="{{ child.url }}">
-          <span>{{ child.label }}</span>
-          <span class="count">{{ child.books }}</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
+    {% for item in roots %}
+    <a class="category-node{% if item.root %} category-root-link{% endif %}" href="{{ item.url }}" style="padding-left:{{ item.depth }}rem">
+      <span>{{ item.label }}</span>
+      <span class="count">{{ item.books }}</span>
+    </a>
     {% endfor %}
   </div>
   {% else %}

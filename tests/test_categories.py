@@ -10,9 +10,11 @@ from kvhomelibrary.db import (
     ParsedBook,
     connect_db,
     delete_books_for_genre,
+    get_genre,
     init_db,
     list_genre_aliases,
     merge_genres,
+    update_genre,
     upsert_book,
 )
 from kvhomelibrary.storage import NO_CATEGORY, UNKNOWN_LANGUAGE, target_path
@@ -71,8 +73,12 @@ class GenreMergeTests(unittest.TestCase):
         self._book("one", "source")
         self._book("two", "target")
         with self.conn:
-            self.conn.execute("UPDATE genres SET name = 'A_B' WHERE code = 'source'")
-            self.conn.execute("UPDATE genres SET name = 'C' WHERE code = 'target'")
+            self.conn.execute(
+                "UPDATE genres SET name = 'A_B', category_path = 'A_B' WHERE code = 'source'"
+            )
+            self.conn.execute(
+                "UPDATE genres SET name = 'C', category_path = 'C' WHERE code = 'target'"
+            )
             source_id = self.conn.execute(
                 "SELECT id FROM genres WHERE code = 'source'"
             ).fetchone()["id"]
@@ -94,6 +100,30 @@ class GenreMergeTests(unittest.TestCase):
         ).fetchone()["id"]
         self.assertEqual(delete_books_for_genre(self.conn, int(genre_id)), 1)
         self.assertEqual(self.conn.execute("SELECT COUNT(*) AS n FROM books").fetchone()["n"], 0)
+
+    def test_move_and_display_name(self) -> None:
+        self._book("one", "source")
+        self._book("two", "target")
+        with self.conn:
+            self.conn.execute(
+                "UPDATE genres SET category_path = 'A_B', name = 'A_B' WHERE code = 'source'"
+            )
+            self.conn.execute(
+                "UPDATE genres SET category_path = 'C', name = 'C' WHERE code = 'target'"
+            )
+        genre_id = int(
+            self.conn.execute("SELECT id FROM genres WHERE code = 'source'").fetchone()["id"]
+        )
+        update_genre(
+            self.conn,
+            genre_id,
+            display_name="Космос",
+            parent_path="C",
+        )
+        genre = get_genre(self.conn, genre_id)
+        self.assertIsNotNone(genre)
+        self.assertEqual(genre.category_path, "C_B")
+        self.assertEqual(genre.display_name, "Космос")
 
 
 class StoragePathTests(unittest.TestCase):

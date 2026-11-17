@@ -1,0 +1,60 @@
+<h1>Управление категориями</h1>
+<p class="muted">Можно переименовать категорию для отображения, переместить её
+в другой раздел дерева или объединить с другой категорией.</p>
+
+<div class="panel">
+  <h2 style="margin-top:0">Объединение категорий</h2>
+  <form method="post" action="/admin/genres/merge" class="form-grid"
+        onsubmit="return confirm('Объединить категории? Книги будут перенесены.')">
+    <label>Присоединить
+      <select name="source_id" required>
+        <option value="">— выберите —</option>
+        {% for item in rows %}<option value="{{ item.id }}">{{ item.label }} ({{ item.books }})</option>{% endfor %}
+      </select>
+    </label>
+    <label>К категории
+      <select name="target_id" required>
+        <option value="">— выберите —</option>
+        {% for item in rows %}<option value="{{ item.id }}">{{ item.label }} ({{ item.books }})</option>{% endfor %}
+      </select>
+    </label>
+    <div class="form-actions"><button class="btn" type="submit">Объединить</button></div>
+  </form>
+  {% if aliases %}
+  <div class="small" style="margin-top:10px">Сохранённые алиасы:</div>
+  <div class="aliases-list">
+    {% for item in aliases %}<div class="small muted"><b>{{ item.alias }}</b> → {{ item.target }}</div>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<h2>Дерево категорий</h2>
+<div class="category-admin-list">
+  {% for item in rows %}
+  <form method="post" action="/admin/genres/update" class="panel category-admin-row">
+    <input type="hidden" name="genre_id" value="{{ item.id }}">
+    <div class="category-admin-title" style="padding-left:{{ item.depth }}rem">
+      <b>{{ item.label }}</b>
+      <span class="muted small">{{ item.path }} · {{ item.books }} книг</span>
+    </div>
+    <div class="form-grid" style="margin-top:8px">
+      <label>Отображаемое имя
+        <input name="display_name" value="{{ item.display_name }}" placeholder="{{ item.label }}">
+      </label>
+      <label>Родительский раздел
+        <select name="parent_path">
+          <option value="">Корень дерева</option>
+          {% for parent in parents %}
+          <option value="{{ parent.path }}"{% if parent.path == item.parent_path %} selected{% endif %}>{{ parent.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn secondary" type="submit">Сохранить</button>
+    </div>
+  </form>
+  {% endfor %}
+</div>
+
+<p><a href="/admin">← Назад в администрирование</a></p>

@@ -65,7 +65,7 @@ cd /opt/kvhomelibrary
 python3 -m kvhomelibrary --version
 ```
 
-Должно вывести `kvhomelibrary 0.9.2` (или более новую версию).
+Должно вывести `kvhomelibrary 0.9.3` (или более новую версию).
 
 ## 3. Пользователь и каталоги
 

@@ -1,8 +1,8 @@
-"""Дерево категорий по именам и вспомогательные функции.
+"""Дерево категорий и вспомогательные функции.
 
-Категория ``Основная_Подкатегория`` относится к корню ``Основная`` и
-подкатегории ``Подкатегория``. Разделитель — первое вхождение ``_``;
-остаток имени сохраняется как название подкатегории.
+Путь категории хранится в ``category_path`` (например,
+``Основная_Подкатегория``), а отображаемое имя — в ``display_name``.
+Исторические категории без пути используют ``name``.
 """
 
 from __future__ import annotations
@@ -45,77 +45,78 @@ def category_root(name: str) -> str:
     return split_category(name)[0]
 
 
+def _segments(path: str) -> list[str]:
+    return [part.strip() for part in (path or "").split("_") if part.strip()]
+
+
 def build_category_tree(genres: list[GenreRef]) -> list[CategoryNode]:
-    """Построить двухуровневое дерево из плоского списка категорий."""
+    """Построить дерево по путям категорий."""
     roots: dict[str, CategoryNode] = {}
+    nodes: dict[str, CategoryNode] = {}
+
     for genre in genres:
-        name = (genre.name or "").strip()
-        if not name:
+        path = (genre.category_path or genre.name or "").strip()
+        if not path:
             continue
-        root_name, _child = split_category(name)
-        if not root_name:
-            continue
-        key = root_name.casefold()
-        root = roots.get(key)
-        if root is None:
-            root = CategoryNode(
-                name=root_name,
-                label=root_name,
-                sort_key=root_name.casefold(),
-            )
-            roots[key] = root
+        parent: CategoryNode | None = None
+        prefix: list[str] = []
+        parts = _segments(path)
+        for position, segment in enumerate(parts):
+            prefix.append(segment)
+            full_name = "_".join(prefix)
+            key = full_name.casefold()
+            node = nodes.get(key)
+            if node is None:
+                node = CategoryNode(
+                    name=full_name,
+                    label=segment,
+                    sort_key=full_name.casefold(),
+                )
+                nodes[key] = node
+                if parent is None:
+                    roots[key] = node
+                else:
+                    parent.children.append(node)
+            if position == len(parts) - 1:
+                node.genre_id = genre.id
+                node.label = genre.display_name or segment
+                node.own_books += int(genre.books or 0)
+            node.books += int(genre.books or 0)
+            parent = node
 
-        if "_" not in name or name == root_name:
-            # Категория верхнего уровня без подкатегории.
-            root.genre_id = genre.id
-            root.own_books += int(genre.books or 0)
-            root.books += int(genre.books or 0)
-            continue
+    def sort_children(items: list[CategoryNode]) -> None:
+        for item in items:
+            item.sort_key = (item.label.casefold(), item.name)
+            sort_children(item.children)
+        items.sort(key=lambda item: (item.sort_key, item.name))
 
-        child = CategoryNode(
-            name=name,
-            label=name.split("_", 1)[1].strip() or name,
-            genre_id=genre.id,
-            books=int(genre.books or 0),
-            own_books=int(genre.books or 0),
-            sort_key=name.casefold(),
-        )
-        root.children.append(child)
-        root.books += child.books
-
-    for root in roots.values():
-        root.children.sort(key=lambda item: (item.sort_key, item.name))
-        root.sort_key = (root.label.casefold(), root.name)
-    return sorted(roots.values(), key=lambda item: (item.sort_key, item.name))
+    root_list = list(roots.values())
+    sort_children(root_list)
+    return root_list
 
 
 def flatten_tree(nodes: list[CategoryNode]) -> list[dict[str, object]]:
     """Плоский список для select и компактного вывода."""
     result: list[dict[str, object]] = []
-    for root in nodes:
+
+    def visit(node: CategoryNode, depth: int) -> None:
         result.append(
             {
-                "name": root.name,
-                "label": root.label,
-                "genre_id": root.genre_id,
-                "books": root.books,
-                "depth": 0,
-                "url": web_url(root),
-                "opds_url": opds_url(root),
+                "name": node.name,
+                "label": node.label,
+                "genre_id": node.genre_id,
+                "books": node.books,
+                "depth": depth,
+                "has_children": bool(node.children),
+                "url": web_url(node),
+                "opds_url": opds_url(node),
             }
         )
-        for child in root.children:
-            result.append(
-                {
-                    "name": child.name,
-                    "label": child.label,
-                    "genre_id": child.genre_id,
-                    "books": child.books,
-                    "depth": 1,
-                    "url": web_url(child),
-                    "opds_url": opds_url(child),
-                }
-            )
+        for child in node.children:
+            visit(child, depth + 1)
+
+    for root in nodes:
+        visit(root, 0)
     return result
 
 
@@ -136,6 +137,9 @@ def find_root(nodes: list[CategoryNode], name: str) -> CategoryNode | None:
     for node in nodes:
         if node.name.casefold() == key:
             return node
+        found = find_root(node.children, name)
+        if found is not None:
+            return found
     return None
 
 

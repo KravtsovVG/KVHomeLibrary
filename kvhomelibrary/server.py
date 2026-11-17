@@ -55,6 +55,7 @@ from .db import (
     record_parse_error,
     reindex_fts,
     update_book_metadata,
+    update_genre,
     update_opds_source,
     upsert_book,
 )
@@ -479,6 +480,8 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                 return
             self._send_json(job.snapshot(), head=head)
             return
+        elif path == "/admin/genres":
+            body = web.admin_genres_page(conn, query, notice=notice, error=error)
         elif path == "/admin/books":
             body = web.books_page(
                 conn, query, admin=True, notice=notice, error=error
@@ -769,6 +772,20 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                 self._redirect("/admin?notice=bulk_deleted", 303)
             else:
                 self._redirect("/admin?error=bulk_delete", 303)
+            return
+
+        if path == "/admin/genres/update":
+            try:
+                update_genre(
+                    conn,
+                    int(value("genre_id")),
+                    display_name=value("display_name"),
+                    parent_path=value("parent_path"),
+                )
+            except ValueError:
+                self._redirect("/admin/genres?error=genre", 303)
+                return
+            self._redirect("/admin/genres?notice=genre_updated", 303)
             return
 
         if path == "/admin/genres/merge":

@@ -27,6 +27,7 @@ from .db import (
     get_stats,
     genre_ids_for_root,
     list_authors,
+    list_all_genres,
     list_books,
     list_genre_aliases,
     list_genres,
@@ -63,6 +64,7 @@ _NOTICES = {
     "downloaded": "Книга скачана в каталог и добавлена в библиотеку.",
     "archive_scanned": "Импорт из архивов завершён.",
     "genres_merged": "Категории объединены, старые названия сохранены как алиасы.",
+    "genre_updated": "Категория обновлена.",
     "bulk_deleted": "Книги удалены из каталога. Файлы на диске остались.",
 }
 _ERRORS = {
@@ -78,6 +80,7 @@ _ERRORS = {
     "download_parse": "Файл скачан в библиотеку, но не распознан как FB2.",
     "archive_scan": "Не удалось импортировать архивы. Проверьте путь, даты и наличие 7-Zip/unrar.",
     "merge": "Не удалось объединить категории.",
+    "genre": "Не удалось изменить категорию. Проверьте имя и родительский раздел.",
     "bulk_delete": "Не удалось удалить выбранные книги.",
 }
 
@@ -195,7 +198,7 @@ def _genres(book: BookRef) -> SafeString:
         genres.append(
             {
                 "url": f"/ui/books?genre_id={genre.id}",
-                "name": genre.name,
+                "name": genre.display_name or genre.name,
                 "title": ("Синонимы: " + ", ".join(synonyms)) if synonyms else "",
             }
         )
@@ -252,20 +255,15 @@ def _card(book: BookRef, *, admin: bool = False) -> dict[str, object]:
 
 def _tree_context(nodes) -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
-    for root in nodes:
+    for item in flatten_tree(nodes):
+        depth = int(item["depth"])
         result.append(
             {
-                "label": root.label,
-                "url": web_url(root),
-                "books": root.books,
-                "children": [
-                    {
-                        "label": child.label,
-                        "url": web_url(child),
-                        "books": child.books,
-                    }
-                    for child in root.children
-                ],
+                "label": item["label"],
+                "url": item["url"],
+                "books": item["books"],
+                "depth": depth,
+                "root": depth == 0,
             }
         )
     return result
@@ -450,7 +448,7 @@ def books_page(
     if author:
         title = f"Книги автора: {author.name}"
     elif genre:
-        title = f"Категория: {genre.name}"
+        title = f"Категория: {genre.display_name or genre.name}"
     elif root_node:
         title = f"Раздел: {root_node.name}"
     elif series:
@@ -658,6 +656,56 @@ def admin_page(
         aliases=aliases,
     )
     return _layout("Администрирование", body, active="admin", notice=notice, error=error)
+
+
+def admin_genres_page(
+    conn,
+    query: Mapping[str, list[str]],
+    *,
+    notice: str = "",
+    error: str = "",
+) -> bytes:
+    genres = list_all_genres(conn)
+    roots = build_category_tree(genres)
+    flat = flatten_tree(roots)
+    display = {genre.id: genre.display_name for genre in genres}
+    rows = [
+        {
+            "id": item["genre_id"],
+            "label": item["label"],
+            "path": item["name"],
+            "depth": item["depth"],
+            "books": item["books"],
+            "parent_path": (
+                str(item["name"]).rsplit("_", 1)[0]
+                if "_" in str(item["name"])
+                else ""
+            ),
+            "display_name": display.get(int(item["genre_id"]) or 0, ""),
+        }
+        for item in flat
+        if item["genre_id"] is not None
+    ]
+    parents = [
+        {
+            "path": item["name"],
+            "label": ("— " * int(item["depth"])) + str(item["label"]),
+        }
+        for item in flat
+    ]
+    body = render(
+        "admin_genres.html",
+        rows=rows,
+        parents=parents,
+        aliases=list_genre_aliases(conn, limit=500),
+    )
+    return _layout(
+        "Управление категориями",
+        body,
+        active="admin",
+        notice=notice,
+        error=error,
+    )
 
 
 def sources_page(

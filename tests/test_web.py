@@ -142,6 +142,30 @@ class WebUiTests(unittest.TestCase):
             self.conn.execute("SELECT COUNT(*) AS n FROM books").fetchone()["n"], 2
         )
 
+    def test_admin_category_page(self) -> None:
+        status, _, body = self._get("/admin/genres")
+        self.assertEqual(status, 200)
+        self.assertIn("Управление категориями", body.decode("utf-8"))
+        genre = self.conn.execute(
+            "SELECT id FROM genres WHERE code = 'sf_fantasy'"
+        ).fetchone()
+        self.assertIsNotNone(genre)
+        status, _, _ = self._post(
+            "/admin/genres/update",
+            {
+                "genre_id": str(genre["id"]),
+                "display_name": "Космическое фэнтези",
+                "parent_path": "Фантастика",
+            },
+        )
+        self.assertEqual(status, 200)
+        updated = self.conn.execute(
+            "SELECT category_path, display_name FROM genres WHERE id = ?",
+            (genre["id"],),
+        ).fetchone()
+        self.assertEqual(updated["category_path"], "Фантастика_Фэнтези")
+        self.assertEqual(updated["display_name"], "Космическое фэнтези")
+
     def test_search_and_filters(self) -> None:
         _, _, body = self._get("/ui/books?" + urllib.parse.urlencode({"q": "Дозор"}))
         text = body.decode("utf-8")

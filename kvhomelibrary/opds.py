@@ -34,7 +34,7 @@ from .db import (
     get_stats,
 )
 from .genres import genre_name
-from .categories import CategoryNode, opds_url
+from .categories import CategoryNode, flatten_tree, opds_url
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
 DC_NS = "http://purl.org/dc/terms/"
@@ -209,7 +209,7 @@ def _book_entry(feed: ET.Element, book: BookRef, base_url: str) -> ET.Element:
             entry,
             f"{{{ATOM_NS}}}category",
             term=genre.code,
-            label=genre.name or genre_name(genre.code),
+            label=genre.display_name or genre.name or genre_name(genre.code),
         )
 
     if book.lang:
@@ -362,7 +362,7 @@ def genres_feed(
     for genre in genres:
         _nav_entry(
             feed,
-            title=genre.name or genre_name(genre.code),
+            title=genre.display_name or genre.name or genre_name(genre.code),
             href=_url(base_url, f"/opds/genres/{genre.id}"),
             seed=f"{base_url}/opds/genres/{genre.id}",
             content=f"{genre.books} {_books_word(genre.books)} · {genre.code}",
@@ -391,26 +391,17 @@ def tree_genres_feed(
         search_url=_url(base_url, "/opds/opensearch.xml"),
         subtitle=f"Разделов: {len(roots)} · книг: {total_books}",
     )
-    for root in roots:
-        root_href = _url(base_url, opds_url(root))
+    for item in flatten_tree(roots):
+        title = ("  " * int(item["depth"])) + str(item["label"])
+        href = _url(base_url, str(item["opds_url"]))
         _nav_entry(
             feed,
-            title=root.label,
-            href=root_href,
-            seed=root_href,
-            content=f"{root.books} {_books_word(root.books)}",
-            kind=ACQ_TYPE if not root.children else NAV_TYPE,
+            title=title,
+            href=href,
+            seed=href,
+            content=f"{item['books']} {_books_word(int(item['books']))}",
+            kind=NAV_TYPE if item["has_children"] else ACQ_TYPE,
         )
-        for child in root.children:
-            child_href = _url(base_url, opds_url(child))
-            _nav_entry(
-                feed,
-                title=f"{root.label} / {child.label}",
-                href=child_href,
-                seed=child_href,
-                content=f"{child.books} {_books_word(child.books)}",
-                kind=ACQ_TYPE,
-            )
     return to_xml(feed)
 
 
@@ -439,7 +430,7 @@ def category_root_feed(
             href=child_href,
             seed=child_href,
             content=f"{child.books} {_books_word(child.books)}",
-            kind=ACQ_TYPE,
+            kind=NAV_TYPE if child.children else ACQ_TYPE,
         )
     all_href = _url(base_url, root_path + "/books")
     _nav_entry(
@@ -561,7 +552,7 @@ def genre_books_feed(
         page_size=page_size,
         total=total,
         books=books,
-        title=genre.name or genre_name(genre.code),
+        title=genre.display_name or genre.name or genre_name(genre.code),
         path=f"/opds/genres/{genre.id}",
         up_url=_url(base_url, "/opds/genres"),
         subtitle=f"Категория · {total} {_books_word(total)}",

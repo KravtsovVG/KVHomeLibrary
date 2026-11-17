@@ -34,10 +34,12 @@ CREATE TABLE IF NOT EXISTS authors (
 );
 
 CREATE TABLE IF NOT EXISTS genres (
-    id       INTEGER PRIMARY KEY,
-    code     TEXT NOT NULL UNIQUE,
-    name     TEXT NOT NULL,
-    sort_key TEXT NOT NULL
+    id            INTEGER PRIMARY KEY,
+    code          TEXT NOT NULL UNIQUE,
+    name          TEXT NOT NULL,
+    sort_key      TEXT NOT NULL,
+    category_path TEXT NOT NULL DEFAULT '',
+    display_name  TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS series (
@@ -201,6 +203,21 @@ def init_db(path: str | Path) -> Path:
             conn.execute(
                 "ALTER TABLE books ADD COLUMN format TEXT NOT NULL DEFAULT 'fb2'"
             )
+        genre_columns = {
+            str(row["name"])
+            for row in conn.execute("PRAGMA table_info(genres)").fetchall()
+        }
+        if "category_path" not in genre_columns:
+            conn.execute(
+                "ALTER TABLE genres ADD COLUMN category_path TEXT NOT NULL DEFAULT ''"
+            )
+        if "display_name" not in genre_columns:
+            conn.execute(
+                "ALTER TABLE genres ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"
+            )
+        conn.execute(
+            "UPDATE genres SET category_path = name WHERE category_path = ''"
+        )
         try:
             conn.executescript(FTS_SCHEMA)
         except sqlite3.OperationalError:
@@ -234,6 +251,16 @@ class GenreRef:
     name: str
     sort_key: str = ""
     books: int = 0
+    category_path: str = ""
+    display_name: str = ""
+
+    @property
+    def label(self) -> str:
+        if self.display_name:
+            return self.display_name
+        if self.category_path and "_" in self.category_path:
+            return self.category_path.split("_", 1)[1]
+        return self.name
 
 
 @dataclass(slots=True)
@@ -364,10 +391,17 @@ def _get_or_create_genre(conn: sqlite3.Connection, code: str) -> int:
     key = _sort_key(name) or _key(code)
     conn.execute(
         """
-        INSERT INTO genres(code, name, sort_key) VALUES (?, ?, ?)
-        ON CONFLICT(code) DO UPDATE SET name = excluded.name, sort_key = excluded.sort_key
+        INSERT INTO genres(code, name, sort_key, category_path, display_name)
+        VALUES (?, ?, ?, ?, '')
+        ON CONFLICT(code) DO UPDATE SET
+            name = excluded.name,
+            sort_key = excluded.sort_key,
+            category_path = CASE
+                WHEN genres.category_path = '' THEN excluded.category_path
+                ELSE genres.category_path
+            END
         """,
-        (code, name, key),
+        (code, name, key, name),
     )
     row = conn.execute("SELECT id FROM genres WHERE code = ?", (code,)).fetchone()
     assert row is not None
@@ -417,8 +451,10 @@ def normalize_genres(conn: sqlite3.Connection) -> int:
                 if canonical != old_code:
                     changed += 1
                 conn.execute(
-                    "UPDATE genres SET code = ?, name = ?, sort_key = ? WHERE id = ?",
-                    (canonical, name, sort_key, old_id),
+                    "UPDATE genres SET code = ?, name = ?, sort_key = ?, "
+                    "category_path = CASE WHEN category_path = '' THEN ? ELSE category_path END "
+                    "WHERE id = ?",
+                    (canonical, name, sort_key, name, old_id),
                 )
     return changed
 
@@ -709,10 +745,16 @@ def _book_from_row(conn: sqlite3.Connection, row: sqlite3.Row) -> BookRef:
         )
     ]
     genres = [
-        GenreRef(id=int(item["id"]), code=str(item["code"]), name=str(item["name"]))
+        GenreRef(
+            id=int(item["id"]),
+            code=str(item["code"]),
+            name=str(item["name"]),
+            category_path=str(item["category_path"]),
+            display_name=str(item["display_name"]),
+        )
         for item in conn.execute(
             """
-            SELECT g.id, g.code, g.name
+            SELECT g.id, g.code, g.name, g.category_path, g.display_name
             FROM genres g JOIN book_genres bg ON bg.genre_id = g.id
             WHERE bg.book_id = ? ORDER BY g.sort_key, g.name
             """,
@@ -1077,7 +1119,8 @@ def list_genres(conn: sqlite3.Connection, *, offset: int = 0, limit: int = 100) 
     )
     rows = conn.execute(
         """
-        SELECT g.id, g.code, g.name, g.sort_key, COUNT(DISTINCT b.id) AS books
+        SELECT g.id, g.code, g.name, g.sort_key, g.category_path, g.display_name,
+               COUNT(DISTINCT b.id) AS books
         FROM genres g
         JOIN book_genres bg ON bg.genre_id = g.id
         JOIN books b ON b.id = bg.book_id
@@ -1096,6 +1139,8 @@ def list_genres(conn: sqlite3.Connection, *, offset: int = 0, limit: int = 100) 
                 name=str(row["name"]),
                 sort_key=str(row["sort_key"]),
                 books=int(row["books"]),
+                category_path=str(row["category_path"]),
+                display_name=str(row["display_name"]),
             )
             for row in rows
         ],
@@ -1103,10 +1148,37 @@ def list_genres(conn: sqlite3.Connection, *, offset: int = 0, limit: int = 100) 
     )
 
 
+def list_all_genres(conn: sqlite3.Connection) -> list[GenreRef]:
+    rows = conn.execute(
+        """
+        SELECT g.id, g.code, g.name, g.sort_key, g.category_path, g.display_name,
+               COUNT(DISTINCT b.id) AS books
+        FROM genres g
+        LEFT JOIN book_genres bg ON bg.genre_id = g.id
+        LEFT JOIN books b ON b.id = bg.book_id AND b.parse_error IS NULL
+        GROUP BY g.id
+        ORDER BY g.sort_key, g.name, g.id
+        """
+    ).fetchall()
+    return [
+        GenreRef(
+            id=int(row["id"]),
+            code=str(row["code"]),
+            name=str(row["name"]),
+            sort_key=str(row["sort_key"]),
+            books=int(row["books"]),
+            category_path=str(row["category_path"]),
+            display_name=str(row["display_name"]),
+        )
+        for row in rows
+    ]
+
+
 def get_genre(conn: sqlite3.Connection, genre_id: int) -> GenreRef | None:
     row = conn.execute(
         """
-        SELECT g.id, g.code, g.name, g.sort_key, COUNT(DISTINCT b.id) AS books
+        SELECT g.id, g.code, g.name, g.sort_key, g.category_path, g.display_name,
+               COUNT(DISTINCT b.id) AS books
         FROM genres g
         LEFT JOIN book_genres bg ON bg.genre_id = g.id
         LEFT JOIN books b ON b.id = bg.book_id AND b.parse_error IS NULL
@@ -1122,6 +1194,8 @@ def get_genre(conn: sqlite3.Connection, genre_id: int) -> GenreRef | None:
         name=str(row["name"]),
         sort_key=str(row["sort_key"]),
         books=int(row["books"]),
+        category_path=str(row["category_path"]),
+        display_name=str(row["display_name"]),
     )
 
 
@@ -1179,17 +1253,19 @@ def get_series(conn: sqlite3.Connection, series_id: int) -> SeriesRef | None:
 
 
 def genre_ids_for_root(conn: sqlite3.Connection, name: str) -> list[int]:
-    """ID категории и всех её подкатегорий по префиксу ``name_``."""
+    """ID категории и всех её подкатегорий по пути ``name_``."""
     key = (name or "").strip().casefold()
     if not key:
         return []
-    rows = conn.execute("SELECT id, name FROM genres").fetchall()
-    return [
-        int(row["id"])
-        for row in rows
-        if (str(row["name"]).casefold() == key
-            or str(row["name"]).casefold().startswith(key + "_"))
-    ]
+    rows = conn.execute(
+        "SELECT id, name, category_path FROM genres"
+    ).fetchall()
+    result: list[int] = []
+    for row in rows:
+        path = str(row["category_path"] or row["name"]).strip().casefold()
+        if path == key or path.startswith(key + "_"):
+            result.append(int(row["id"]))
+    return result
 
 
 def list_genre_aliases(conn: sqlite3.Connection, *, limit: int = 200) -> list[dict[str, str]]:
@@ -1220,27 +1296,31 @@ def merge_genres(
     if source_id == target_id:
         raise ValueError("Нельзя объединить категорию с самой собой.")
     source = conn.execute(
-        "SELECT id, code, name FROM genres WHERE id = ?", (source_id,)
+        "SELECT id, code, name, category_path, display_name FROM genres WHERE id = ?",
+        (source_id,),
     ).fetchone()
     target = conn.execute(
-        "SELECT id, code, name FROM genres WHERE id = ?", (target_id,)
+        "SELECT id, code, name, category_path, display_name FROM genres WHERE id = ?",
+        (target_id,),
     ).fetchone()
     if source is None or target is None:
         raise ValueError("Категория не найдена.")
 
-    source_name = str(source["name"]).strip()
-    target_name = str(target["name"]).strip()
+    source_name = str(source["category_path"] or source["name"]).strip()
+    target_name = str(target["category_path"] or target["name"]).strip()
     source_key = source_name.casefold()
     target_key = target_name.casefold()
     if target_key == source_key or target_key.startswith(source_key + "_"):
         raise ValueError("Нельзя присоединить категорию к её подкатегории.")
 
-    rows = conn.execute("SELECT id, code, name FROM genres").fetchall()
+    rows = conn.execute(
+        "SELECT id, code, name, category_path, display_name FROM genres"
+    ).fetchall()
     source_ids = [
         int(row["id"])
         for row in rows
-        if str(row["name"]).casefold() == source_key
-        or str(row["name"]).casefold().startswith(source_key + "_")
+        if str(row["category_path"] or row["name"]).casefold() == source_key
+        or str(row["category_path"] or row["name"]).casefold().startswith(source_key + "_")
     ]
     if target_id in source_ids:
         raise ValueError("Нельзя присоединить категорию к её подкатегории.")
@@ -1316,15 +1396,19 @@ def merge_category_root(
 ) -> tuple[int, int]:
     """Объединить корень дерева (все его категории) с целевой категорией."""
     source_name = (source_name or "").strip()
-    target = conn.execute("SELECT id, code, name FROM genres WHERE id = ?", (target_id,)).fetchone()
+    target = conn.execute(
+        "SELECT id, code, name, category_path FROM genres WHERE id = ?", (target_id,)
+    ).fetchone()
     if target is None:
         raise ValueError("Категория не найдена.")
-    rows = conn.execute("SELECT id, code, name FROM genres").fetchall()
+    rows = conn.execute(
+        "SELECT id, code, name, category_path FROM genres"
+    ).fetchall()
     source_key = source_name.casefold()
     source_rows = [
         row for row in rows
-        if str(row["name"]).casefold() == source_key
-        or str(row["name"]).casefold().startswith(source_key + "_")
+        if str(row["category_path"] or row["name"]).casefold() == source_key
+        or str(row["category_path"] or row["name"]).casefold().startswith(source_key + "_")
     ]
     if not source_rows:
         with conn:
@@ -1339,17 +1423,22 @@ def merge_category_root(
     # Если у корня есть собственная запись, merge_genres сразу заберёт
     # и все подкатегории. Иначе объединяем каждую подкатегорию по очереди.
     root_row = next(
-        (row for row in source_rows if str(row["name"]).casefold() == source_key),
+        (
+            row for row in source_rows
+            if str(row["category_path"] or row["name"]).casefold() == source_key
+        ),
         None,
     )
     if root_row is not None:
         moved, removed = merge_genres(conn, int(root_row["id"]), target_id)
     else:
-        for name in [str(row["name"]) for row in source_rows]:
-            row = conn.execute("SELECT id FROM genres WHERE name = ?", (name,)).fetchone()
-            if row is None:
+        for row in source_rows:
+            current = conn.execute(
+                "SELECT id FROM genres WHERE id = ?", (int(row["id"]),)
+            ).fetchone()
+            if current is None:
                 continue
-            one_moved, one_removed = merge_genres(conn, int(row["id"]), target_id)
+            one_moved, one_removed = merge_genres(conn, int(current["id"]), target_id)
             moved += one_moved
             removed += one_removed
     with conn:
@@ -1364,6 +1453,82 @@ def merge_category_root(
 def delete_books_for_series(conn: sqlite3.Connection, series_id: int) -> int:
     rows = conn.execute("SELECT id FROM books WHERE series_id = ?", (series_id,)).fetchall()
     return delete_books(conn, [int(row["id"]) for row in rows])
+
+
+def update_genre(
+    conn: sqlite3.Connection,
+    genre_id: int,
+    *,
+    display_name: str,
+    parent_path: str,
+) -> int:
+    """Переименовать категорию и/или переместить её с подкатегориями."""
+    row = conn.execute(
+        "SELECT id, name, category_path, display_name FROM genres WHERE id = ?",
+        (genre_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError("Категория не найдена.")
+    old_path = str(row["category_path"] or row["name"]).strip()
+    old_key = old_path.casefold()
+    parent_path = (parent_path or "").strip().strip("_")
+    parent_key = parent_path.casefold()
+    if parent_key == old_key or parent_key.startswith(old_key + "_"):
+        raise ValueError("Нельзя переместить категорию внутрь себя.")
+
+    segments = [part.strip() for part in old_path.split("_") if part.strip()]
+    leaf = segments[-1] if segments else old_path
+    new_path = f"{parent_path}_{leaf}" if parent_path else leaf
+    new_key = new_path.casefold()
+    rows = conn.execute(
+        "SELECT id, name, category_path, display_name FROM genres"
+    ).fetchall()
+    known_paths = {
+        str(item["category_path"] or item["name"]).strip().casefold()
+        for item in rows
+    }
+    for known in list(known_paths):
+        parts = [part for part in known.split("_") if part]
+        for index in range(1, len(parts)):
+            known_paths.add("_".join(parts[:index]))
+    if parent_path and parent_key not in known_paths:
+        raise ValueError("Родительская категория не найдена.")
+    for item in rows:
+        item_path = str(item["category_path"] or item["name"]).strip()
+        item_key = item_path.casefold()
+        if int(item["id"]) == genre_id:
+            continue
+        if item_key == new_key:
+            raise ValueError("Категория с таким путём уже существует.")
+        if item_key.startswith(old_key + "_"):
+            renamed = new_path + item_path[len(old_path):]
+            if renamed.casefold() in known_paths:
+                raise ValueError("Перемещение создаёт конфликт путей.")
+
+    display_name = (display_name or "").strip()[:200]
+    with conn:
+        conn.execute(
+            "UPDATE genres SET display_name = ?, sort_key = ? WHERE id = ?",
+            (display_name, _sort_key(display_name or leaf), genre_id),
+        )
+        for item in rows:
+            item_path = str(item["category_path"] or item["name"]).strip()
+            item_key = item_path.casefold()
+            if item_key != old_key and not item_key.startswith(old_key + "_"):
+                continue
+            suffix = item_path[len(old_path):]
+            moved_path = new_path + suffix
+            item_display = str(item["display_name"] or "")
+            item_leaf = moved_path.split("_")[-1]
+            conn.execute(
+                "UPDATE genres SET category_path = ?, sort_key = ? WHERE id = ?",
+                (
+                    moved_path,
+                    _sort_key(item_display or item_leaf),
+                    int(item["id"]),
+                ),
+            )
+    return len(segments)
 
 
 def get_stats(conn: sqlite3.Connection) -> Stats:
