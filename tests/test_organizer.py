@@ -30,8 +30,15 @@ class OrganizerTests(unittest.TestCase):
         shutil.rmtree(self.temp.path, ignore_errors=True)
 
     def test_dry_run_does_not_move(self) -> None:
-        report = organize_library(self.db, self.library, dry_run=True)
+        events: list[tuple[int, int]] = []
+        report = organize_library(
+            self.db,
+            self.library,
+            dry_run=True,
+            progress=lambda index, total, _path: events.append((index, total)),
+        )
         self.assertEqual(report.total, 2)
+        self.assertEqual(events, [(1, 2), (2, 2)])
         self.assertTrue((self.old / "bulgakov.fb2").exists())
         self.assertTrue((self.old / "book.pdf").exists())
 

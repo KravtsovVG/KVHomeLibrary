@@ -224,6 +224,18 @@ def _progress(index: int, total: int, path: Path, status: str) -> None:
         print(f"\r[{index}/{total}] {status:<8} {path.name[:70]}", end="", flush=True)
 
 
+def _organize_progress(index: int, total: int, path: Path) -> None:
+    width = 28
+    percent = 100 if total == 0 else min(100, round(100 * index / total))
+    filled = min(width, width * percent // 100)
+    bar = "#" * filled + "-" * (width - filled)
+    print(
+        f"\r[{bar}] {percent:3d}% {index}/{total} {path.name[:55]}",
+        end="",
+        flush=True,
+    )
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     library = Path(args.path).expanduser()
     if not library.is_dir():
@@ -358,12 +370,22 @@ def cmd_organize(args: argparse.Namespace) -> int:
         copy=args.copy,
         dry_run=args.dry_run,
         prune_empty=args.prune_empty,
+        progress=_organize_progress,
     )
+    if report.total:
+        print()
     print(f"Каталог:          {report.root}")
     print(f"Найдено файлов:   {report.total}")
-    print(f"Перемещено:       {report.moved}")
-    if args.copy:
-        print(f"Скопировано:      {report.copied}")
+    if args.dry_run:
+        if args.copy:
+            print(f"К копированию:    {report.copied}")
+        else:
+            print(f"К перемещению:    {report.moved}")
+    else:
+        if args.copy:
+            print(f"Скопировано:      {report.copied}")
+        else:
+            print(f"Перемещено:       {report.moved}")
     print(f"Уже на месте:     {report.already}")
     print(f"Дубликатов:       {report.duplicates}")
     print(f"Добавлено в БД:   {report.added}")

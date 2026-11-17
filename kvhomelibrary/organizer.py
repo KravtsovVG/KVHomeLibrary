@@ -8,6 +8,7 @@ import shutil
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from .book_formats import build_book
 from .db import connect_db, init_db, upsert_book
@@ -101,6 +102,7 @@ def organize_library(
     copy: bool = False,
     dry_run: bool = False,
     prune_empty: bool = False,
+    progress: Callable[[int, int, Path], None] | None = None,
 ) -> OrganizeReport:
     """Переместить/скопировать книги в ``язык/категория/серия``."""
     library = Path(library_dir).expanduser().resolve()
@@ -121,7 +123,9 @@ def organize_library(
         conn = connect_db(db_path)
 
     try:
-        for source in files:
+        for index, source in enumerate(files, start=1):
+            if progress is not None:
+                progress(index, len(files), source)
             try:
                 book, archive_zip = _load(source)
                 destination = target_path(
@@ -168,7 +172,10 @@ def organize_library(
                     )
 
                 if dry_run:
-                    report.moved += 1
+                    if copy:
+                        report.copied += 1
+                    else:
+                        report.moved += 1
                     continue
 
                 ensure_parent(destination)
