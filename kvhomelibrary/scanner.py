@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,6 +22,7 @@ from .db import (
 from .fb2 import Fb2Error, iter_fb2_files, parse_fb2_bytes
 
 ProgressCallback = Callable[[int, int, Path, str], None]
+LOGGER = logging.getLogger("kvhomelibrary.scanner")
 
 
 @dataclass(slots=True)
@@ -139,4 +141,8 @@ def scan_library(
         conn.close()
 
     report.duration = time.monotonic() - started
+    for path, error in report.errors[:100]:
+        LOGGER.warning("Ошибка разбора %s: %s", path, error)
+    if len(report.errors) > 100:
+        LOGGER.warning("Всего ошибок разбора: %s", len(report.errors))
     return report

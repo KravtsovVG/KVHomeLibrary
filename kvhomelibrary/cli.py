@@ -18,9 +18,12 @@ from .db import (
 )
 from .scanner import scan_library
 from .server import ServerConfig, create_server
+from .logging_setup import configure_logging, default_log_path
+from .organizer import organize_library
 
 DEFAULT_DB = os.environ.get("KVL_DB", "library.db")
 DEFAULT_LIBRARY = os.environ.get("KVL_LIBRARY", "books")
+LOGGER = logging.getLogger("kvhomelibrary.cli")
 
 
 def _db_parent(db: str) -> Path:
@@ -78,6 +81,14 @@ def _add_db_option(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_log_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--log-file",
+        default=os.environ.get("KVL_LOG_FILE", ""),
+        help="файл логов (по умолчанию <каталог БД>/logs/kvhomelibrary.log)",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="kvhomelibrary",
@@ -111,6 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scan_parser.add_argument("--covers", help="каталог для обложек")
     scan_parser.add_argument("-q", "--quiet", action="store_true", help="без прогресса")
+    _add_log_option(scan_parser)
     scan_parser.set_defaults(func=cmd_scan)
 
     serve_parser = subparsers.add_parser("serve", help="запустить OPDS-сервер")
@@ -154,7 +166,38 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("KVL_ADMIN_PASSWORD", ""),
         help="пароль для /admin (иначе администрирование только с localhost)",
     )
+    _add_log_option(serve_parser)
     serve_parser.set_defaults(func=cmd_serve)
+
+    organize_parser = subparsers.add_parser(
+        "organize",
+        help="разложить существующий каталог книг по язык/категория/серия",
+    )
+    _add_db_option(organize_parser)
+    organize_parser.add_argument(
+        "path",
+        nargs="?",
+        default=DEFAULT_LIBRARY,
+        help=f"каталог с книгами (по умолчанию: {DEFAULT_LIBRARY})",
+    )
+    organize_parser.add_argument("--covers", help="каталог для обложек")
+    organize_parser.add_argument(
+        "--copy",
+        action="store_true",
+        help="копировать файлы, а не перемещать",
+    )
+    organize_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="показать план без изменения файлов и БД",
+    )
+    organize_parser.add_argument(
+        "--prune-empty",
+        action="store_true",
+        help="удалить пустые каталоги после переноса",
+    )
+    _add_log_option(organize_parser)
+    organize_parser.set_defaults(func=cmd_organize)
 
     stats_parser = subparsers.add_parser("stats", help="показать статистику библиотеки")
     _add_db_option(stats_parser)
@@ -213,17 +256,14 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print("\nОшибки разбора:", file=sys.stderr)
         for path, error in report.errors[:20]:
             print(f"  {path}: {error}", file=sys.stderr)
+            LOGGER.error("Ошибка разбора %s: %s", path, error)
         if len(report.errors) > 20:
             print(f"  ... и ещё {len(report.errors) - 20}", file=sys.stderr)
+            LOGGER.error("Всего ошибок разбора: %s", len(report.errors))
     return 0
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%H:%M:%S",
-    )
     covers = _covers_dir(args.db, args.covers)
     config = ServerConfig(
         db_path=Path(args.db).expanduser().resolve(),
@@ -235,6 +275,10 @@ def cmd_serve(args: argparse.Namespace) -> int:
     )
     init_db(config.db_path)
     config.covers_dir.mkdir(parents=True, exist_ok=True)
+    log_path = getattr(args, "log_path", None)
+    if log_path:
+        print(f"Логи: {log_path}")
+    LOGGER.info("Запуск сервера: %s:%s", args.host, args.port)
 
     if args.scan:
         library = Path(args.library).expanduser()
@@ -297,6 +341,43 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_organize(args: argparse.Namespace) -> int:
+    library = Path(args.path).expanduser()
+    if not library.is_dir():
+        print(f"Ошибка: каталог не найден: {library}", file=sys.stderr)
+        return 2
+    covers = _covers_dir(args.db, args.covers)
+    if getattr(args, "log_path", None):
+        print(f"Логи: {args.log_path}")
+    if args.dry_run:
+        print("Режим проверки: файлы и база не изменяются.")
+    report = organize_library(
+        args.db,
+        library,
+        covers_dir=covers,
+        copy=args.copy,
+        dry_run=args.dry_run,
+        prune_empty=args.prune_empty,
+    )
+    print(f"Каталог:          {report.root}")
+    print(f"Найдено файлов:   {report.total}")
+    print(f"Перемещено:       {report.moved}")
+    if args.copy:
+        print(f"Скопировано:      {report.copied}")
+    print(f"Уже на месте:     {report.already}")
+    print(f"Дубликатов:       {report.duplicates}")
+    print(f"Добавлено в БД:   {report.added}")
+    print(f"Обновлено в БД:   {report.updated}")
+    print(f"Ошибок:           {report.failed}")
+    if report.errors:
+        print("\nОшибки:", file=sys.stderr)
+        for path, error in report.errors[:20]:
+            print(f"  {path}: {error}", file=sys.stderr)
+        if len(report.errors) > 20:
+            print(f"  ... и ещё {len(report.errors) - 20}", file=sys.stderr)
+    return 1 if report.failed else 0
+
+
 def cmd_stats(args: argparse.Namespace) -> int:
     init_db(args.db)
     conn = connect_db(args.db)
@@ -340,6 +421,9 @@ def cmd_reindex(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command in {"serve", "scan", "organize"}:
+        log_file = getattr(args, "log_file", "") or default_log_path(args.db)
+        args.log_path = configure_logging(Path(log_file))
     try:
         return int(args.func(args))
     except KeyboardInterrupt:
@@ -347,6 +431,10 @@ def main(argv: list[str] | None = None) -> int:
         return 130
     except BrokenPipeError:
         return 0
+    except Exception as exc:  # noqa: BLE001 - CLI должен вернуть понятную ошибку
+        LOGGER.exception("Необработанная ошибка")
+        print(f"Ошибка: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":  # pragma: no cover

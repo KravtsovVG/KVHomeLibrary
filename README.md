@@ -315,6 +315,7 @@ python -m kvhomelibrary serve --db data\demo.db
 | `python -m kvhomelibrary init` | создать базу и каталог обложек |
 | `python -m kvhomelibrary scan PATH` | просканировать папку и обновить базу |
 | `python -m kvhomelibrary serve` | запустить OPDS-сервер |
+| `python -m kvhomelibrary organize PATH` | разложить книги по язык/категория/серия |
 | `python -m kvhomelibrary stats` | показать статистику и ошибки разбора |
 | `python -m kvhomelibrary reindex` | перестроить поисковый индекс FTS5 |
 
@@ -323,6 +324,7 @@ python -m kvhomelibrary serve --db data\demo.db
 ```text
 --db PATH             путь к базе (по умолчанию library.db)
 --covers PATH         каталог обложек (по умолчанию рядом с базой)
+--log-file PATH       файл логов (по умолчанию <каталог БД>/logs/kvhomelibrary.log)
 scan --no-recursive   не заходить в подпапки
 scan --prune          удалить записи о пропавших файлах
 serve --host 0.0.0.0  слушать все интерфейсы
@@ -337,8 +339,14 @@ serve --scan          просканировать --library перед запу
 ```bat
 python -m kvhomelibrary scan "D:\Books" --db data\library.db --prune
 python -m kvhomelibrary stats --db data\library.db
+python -m kvhomelibrary organize "D:\Books" --db data\library.db --dry-run
+python -m kvhomelibrary organize "D:\Books" --db data\library.db --prune-empty
 python -m kvhomelibrary serve --db data\library.db --host 0.0.0.0 --port 8080
 ```
+
+Логи сервера и ошибки сканирования/миграции пишутся в
+`<каталог БД>/logs/kvhomelibrary.log`, файл ротируется (5 МБ × 5).
+Путь можно изменить параметром `--log-file` или `KVL_LOG_FILE`.
 
 ## Импорт из архивов
 
@@ -391,6 +399,29 @@ Windows: установите [7-Zip](https://www.7-zip.org/).
 
 Удаление убирает записи каталога и поискового индекса; файлы на диске
 остаются.
+
+## Миграция существующего каталога
+
+Утилита `organize` переносит существующие FB2, PDF, DjVu, EPUB и
+`.fb2.zip`/ZIP с одной книгой в структуру `язык/категория/серия`:
+
+```bat
+:: сначала посмотреть план, ничего не меняя
+python -m kvhomelibrary organize "D:\Books" --db data\library.db --dry-run
+
+:: затем выполнить перенос; пустые старые папки удалить
+python -m kvhomelibrary organize "D:\Books" --db data\library.db --prune-empty
+```
+
+Параметры:
+
+- `--copy` — копировать, а не перемещать;
+- `--dry-run` — только показать план;
+- `--prune-empty` — удалить пустые каталоги после переноса.
+
+Перед миграцией сделайте резервную копию каталога книг и базы. Утилита
+обновляет пути и метаданные книг в базе; файлы, которые не удалось
+разобрать, остаются на месте и попадают в лог.
 
 ## Встроенная читалка
 
@@ -479,6 +510,8 @@ KVHomeLibrary/
 │   ├── book_formats.py  метаданные FB2/PDF/DjVu/EPUB
 │   ├── categories.py   дерево категорий по имени
 │   ├── storage.py      раскладка файлов язык/категория/серия
+│   ├── organizer.py    миграция существующего каталога
+│   ├── logging_setup.py файловые логи с ротацией
 │   ├── opds.py         формирование Atom/OPDS-фидов
 │   ├── opds_client.py  чтение чужих OPDS и скачивание FB2
 │   ├── html_sanitizer.py  безопасный HTML описаний

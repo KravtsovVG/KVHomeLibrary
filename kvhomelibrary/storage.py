@@ -77,7 +77,10 @@ def target_path(
     stem = Path(base).stem if Path(base).suffix else base
     stem = safe_component(stem, safe_component(book.title, "book"))
     digest = (book.file_hash or "")[:10]
-    filename = f"{stem}-{digest}{suffix}" if digest else f"{stem}{suffix}"
+    if digest and not stem.casefold().endswith(digest.casefold()):
+        filename = f"{stem}-{digest}{suffix}"
+    else:
+        filename = f"{stem}{suffix}"
     return directory / filename
 
 

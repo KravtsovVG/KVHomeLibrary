@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -28,6 +29,7 @@ from .fb2 import Fb2Error
 from .storage import ensure_parent, target_path
 
 ARCHIVE_SUFFIXES = {".zip", ".7z", ".rar"}
+LOGGER = logging.getLogger("kvhomelibrary.archive_scanner")
 MAX_ENTRY_BYTES = 512 * 1024 * 1024
 MAX_ENTRIES = 5000
 TOOL_TIMEOUT = 300
@@ -445,4 +447,8 @@ def scan_archives(
     report.current_archive = ""
     report.progress = 100
     notify()
+    for error in report.errors[:100]:
+        LOGGER.warning("Импорт архивов: %s", error)
+    if len(report.errors) > 100:
+        LOGGER.warning("Всего ошибок импорта архивов: %s", len(report.errors))
     return report

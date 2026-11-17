@@ -252,6 +252,9 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: object) -> None:  # noqa: A003
         LOGGER.info("%s - %s", self.address_string(), fmt % args)
 
+    def log_error(self, fmt: str, *args: object) -> None:  # noqa: A003
+        LOGGER.error("%s - %s", self.address_string(), fmt % args)
+
     def do_GET(self) -> None:  # noqa: N802
         self._handle(head=False)
 
