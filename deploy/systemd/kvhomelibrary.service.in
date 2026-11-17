@@ -23,7 +23,7 @@ ProtectControlGroups=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-ReadWritePaths=@DATA_DIR@ @LIBRARY_DIR@/OPDS
+ReadWritePaths=@DATA_DIR@ @LIBRARY_DIR@
 UMask=0027
 
 [Install]

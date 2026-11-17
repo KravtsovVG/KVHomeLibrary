@@ -66,7 +66,7 @@ install -d -m 0755 -o root -g root "$INSTALL_DIR"
 install -d -m 0750 -o "$SERVICE_USER" -g "$SERVICE_USER" "$DATA_DIR"
 install -d -m 0750 -o "$SERVICE_USER" -g "$SERVICE_USER" "$DATA_DIR/covers"
 install -d -m 0750 -o root -g "$SERVICE_USER" "$LIBRARY_DIR"
-install -d -m 0750 -o "$SERVICE_USER" -g "$SERVICE_USER" "$LIBRARY_DIR/OPDS"
+install -d -m 0750 -o "$SERVICE_USER" -g "$SERVICE_USER" "$LIBRARY_DIR/.downloads"
 
 IS_UPDATE=0
 if [[ -d "$INSTALL_DIR/.git" ]]; then

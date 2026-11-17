@@ -65,7 +65,7 @@ cd /opt/kvhomelibrary
 python3 -m kvhomelibrary --version
 ```
 
-Должно вывести `kvhomelibrary 0.8.2` (или более новую версию).
+Должно вывести `kvhomelibrary 0.9.0` (или более новую версию).
 
 ## 3. Пользователь и каталоги
 
@@ -84,11 +84,13 @@ sudo adduser --system --group --home /var/lib/kvhomelibrary \
 sudo install -d -o kvhome -g kvhome -m 750 /var/lib/kvhomelibrary
 sudo install -d -o kvhome -g kvhome -m 750 /var/lib/kvhomelibrary/covers
 sudo install -d -o root   -g kvhome -m 750 /srv/books
-sudo install -d -o kvhome -g kvhome -m 750 /srv/books/OPDS
+sudo install -d -o kvhome -g kvhome -m 750 /srv/books/.downloads
 ```
 
-Каталог `/srv/books/OPDS` нужен для книг, скачанных из внешних OPDS-источников:
-сервис должен иметь право писать в него.
+Каталог `/srv/books/.downloads` — временный для книг, скачанных из внешних
+OPDS-источников. После разбора файл переносится в
+`/srv/books/<язык>/<категория>/<серия>`, поэтому сервис должен иметь право
+писать в `/srv/books` и создавать там подкаталоги.
 
 Положите книги в `/srv/books` (можно в подпапки). Пользователь `kvhome`
 должен иметь право читать файлы:
@@ -190,7 +192,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/kvhomelibrary /srv/books/OPDS
+ReadWritePaths=/var/lib/kvhomelibrary /srv/books
 UMask=0027
 
 [Install]
@@ -204,7 +206,8 @@ WantedBy=multi-user.target
 RequiresMountsFor=/srv/books
 ```
 
-и при необходимости замените `/srv/books/OPDS` на свой путь для скачанных книг.
+и при необходимости замените `/srv/books/.downloads` на свой временный путь
+для скачанных книг.
 
 Включите и запустите:
 
@@ -275,10 +278,10 @@ Basic Auth передаёт пароль по HTTP без шифрования. 
 `opds_sources`.
 
 Для скачивания сервисный пользователь `kvhome` должен иметь право писать
-в `/srv/books/OPDS`:
+в `/srv/books/.downloads` и в каталоги структуры `/srv/books/<язык>/...`:
 
 ```bash
-sudo install -d -o kvhome -g kvhome -m 750 /srv/books/OPDS
+sudo install -d -o kvhome -g kvhome -m 750 /srv/books/.downloads
 sudo systemctl restart kvhomelibrary
 ```
 
@@ -430,7 +433,7 @@ sudo systemctl restart kvhomelibrary
 
 Если нужны загрузки из внешних OPDS, шара должна быть смонтирована
 с правом записи (`rw`), иначе сервис не сможет сохранить книгу
-в `/srv/books/OPDS`.
+в `/srv/books/.downloads` и разложить её по каталогам.
 
 ## 12. Если что-то не работает
 

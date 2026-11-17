@@ -306,7 +306,7 @@ class OpdsServerTests(unittest.TestCase):
 
         status, _, body = self._get("/opds/genres")
         self.assertEqual(status, 200)
-        self.assertEqual(len(_entries(_parse(body))), 2)
+        self.assertEqual(len(_entries(_parse(body))), 5)
 
         status, _, body = self._get("/opds/series")
         self.assertEqual(status, 200)
@@ -318,6 +318,19 @@ class OpdsServerTests(unittest.TestCase):
         feed = _parse(body)
         self.assertEqual(len(_entries(feed)), 2)
         self.assertTrue(_links(feed, "next"))
+
+    def test_category_tree_section(self) -> None:
+        root_name = urllib.parse.quote("Фантастика")
+        status, _, body = self._get(f"/opds/genres/root/{root_name}")
+        self.assertEqual(status, 200)
+        feed = _parse(body)
+        titles = {entry.findtext(f"{{{opds.ATOM_NS}}}title") for entry in _entries(feed)}
+        self.assertIn("Все книги раздела", titles)
+
+        status, headers, body = self._get(f"/opds/genres/root/{root_name}/books")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], opds.ACQ_TYPE)
+        self.assertEqual(len(_entries(_parse(body))), 1)
 
     def test_detail_and_download(self) -> None:
         book_id = self.ids[BULGAKOV.name]

@@ -47,6 +47,16 @@ CREATE TABLE IF NOT EXISTS series (
     sort_key TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS genre_aliases (
+    id          INTEGER PRIMARY KEY,
+    genre_id    INTEGER NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+    alias       TEXT NOT NULL,
+    alias_key   TEXT NOT NULL UNIQUE,
+    created_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_genre_aliases_genre ON genre_aliases(genre_id);
+
 CREATE TABLE IF NOT EXISTS books (
     id            INTEGER PRIMARY KEY,
     file_path     TEXT NOT NULL UNIQUE,
@@ -392,6 +402,11 @@ def normalize_genres(conn: sqlite3.Connection) -> int:
                     (target_id, old_id),
                 )
                 conn.execute("DELETE FROM book_genres WHERE genre_id = ?", (old_id,))
+                conn.execute(
+                    "INSERT OR IGNORE INTO genre_aliases(genre_id, alias, alias_key, created_at) "
+                    "SELECT ?, alias, alias_key, created_at FROM genre_aliases WHERE genre_id = ?",
+                    (target_id, old_id),
+                )
                 conn.execute("DELETE FROM genres WHERE id = ?", (old_id,))
                 conn.execute(
                     "UPDATE genres SET name = ?, sort_key = ? WHERE id = ?",
@@ -903,6 +918,7 @@ def list_books(
     *,
     author_id: int | None = None,
     genre_id: int | None = None,
+    genre_ids: Iterable[int] | None = None,
     series_id: int | None = None,
     query: str | None = None,
     offset: int = 0,
@@ -926,6 +942,17 @@ def list_books(
             "EXISTS (SELECT 1 FROM book_genres bg WHERE bg.book_id = b.id AND bg.genre_id = ?)"
         )
         params.append(genre_id)
+    if genre_ids is not None:
+        ids = [int(item) for item in genre_ids]
+        if ids:
+            marks = ",".join("?" for _ in ids)
+            where.append(
+                "EXISTS (SELECT 1 FROM book_genres bg WHERE bg.book_id = b.id "
+                f"AND bg.genre_id IN ({marks}))"
+            )
+            params.extend(ids)
+        else:
+            where.append("1 = 0")
     if series_id is not None:
         where.append("b.series_id = ?")
         params.append(series_id)
@@ -1149,6 +1176,194 @@ def get_series(conn: sqlite3.Connection, series_id: int) -> SeriesRef | None:
         sort_key=str(row["sort_key"]),
         books=int(row["books"]),
     )
+
+
+def genre_ids_for_root(conn: sqlite3.Connection, name: str) -> list[int]:
+    """ID категории и всех её подкатегорий по префиксу ``name_``."""
+    key = (name or "").strip().casefold()
+    if not key:
+        return []
+    rows = conn.execute("SELECT id, name FROM genres").fetchall()
+    return [
+        int(row["id"])
+        for row in rows
+        if (str(row["name"]).casefold() == key
+            or str(row["name"]).casefold().startswith(key + "_"))
+    ]
+
+
+def list_genre_aliases(conn: sqlite3.Connection, *, limit: int = 200) -> list[dict[str, str]]:
+    rows = conn.execute(
+        """
+        SELECT ga.alias, g.name AS target_name
+        FROM genre_aliases ga
+        JOIN genres g ON g.id = ga.genre_id
+        ORDER BY ga.alias_key
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    return [
+        {"alias": str(row["alias"]), "target": str(row["target_name"])}
+        for row in rows
+    ]
+
+
+def merge_genres(
+    conn: sqlite3.Connection, source_id: int, target_id: int
+) -> tuple[int, int]:
+    """Объединить категорию (и её подкатегории) с целевой.
+
+    Возвращает (сколько книг затронуто, сколько категорий удалено).
+    Названия и коды присоединённых категорий сохраняются как алиасы.
+    """
+    if source_id == target_id:
+        raise ValueError("Нельзя объединить категорию с самой собой.")
+    source = conn.execute(
+        "SELECT id, code, name FROM genres WHERE id = ?", (source_id,)
+    ).fetchone()
+    target = conn.execute(
+        "SELECT id, code, name FROM genres WHERE id = ?", (target_id,)
+    ).fetchone()
+    if source is None or target is None:
+        raise ValueError("Категория не найдена.")
+
+    source_name = str(source["name"]).strip()
+    target_name = str(target["name"]).strip()
+    source_key = source_name.casefold()
+    target_key = target_name.casefold()
+    if target_key == source_key or target_key.startswith(source_key + "_"):
+        raise ValueError("Нельзя присоединить категорию к её подкатегории.")
+
+    rows = conn.execute("SELECT id, code, name FROM genres").fetchall()
+    source_ids = [
+        int(row["id"])
+        for row in rows
+        if str(row["name"]).casefold() == source_key
+        or str(row["name"]).casefold().startswith(source_key + "_")
+    ]
+    if target_id in source_ids:
+        raise ValueError("Нельзя присоединить категорию к её подкатегории.")
+
+    placeholders = ",".join("?" for _ in source_ids)
+    book_ids = [
+        int(row["book_id"])
+        for row in conn.execute(
+            f"SELECT DISTINCT book_id FROM book_genres WHERE genre_id IN ({placeholders})",
+            source_ids,
+        ).fetchall()
+    ]
+    now = utc_now()
+    with conn:
+        for row in rows:
+            source_row_id = int(row["id"])
+            if source_row_id not in source_ids:
+                continue
+            # Переносим ранее сохранённые алиасы.
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO genre_aliases(genre_id, alias, alias_key, created_at)
+                SELECT ?, alias, alias_key, created_at
+                FROM genre_aliases WHERE genre_id = ?
+                """,
+                (target_id, source_row_id),
+            )
+            conn.execute("DELETE FROM genre_aliases WHERE genre_id = ?", (source_row_id,))
+            for alias in (str(row["name"]), str(row["code"])):
+                alias = alias.strip()
+                if not alias:
+                    continue
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO genre_aliases(genre_id, alias, alias_key, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (target_id, alias, _key(alias), now),
+                )
+            conn.execute(
+                "INSERT OR IGNORE INTO book_genres(book_id, genre_id) "
+                "SELECT book_id, ? FROM book_genres WHERE genre_id = ?",
+                (target_id, source_row_id),
+            )
+            conn.execute("DELETE FROM book_genres WHERE genre_id = ?", (source_row_id,))
+            conn.execute("DELETE FROM genres WHERE id = ?", (source_row_id,))
+    return len(book_ids), len(source_ids)
+
+
+def delete_books_for_genre(conn: sqlite3.Connection, genre_id: int) -> int:
+    """Удалить книги категории и всех её подкатегорий."""
+    genre = get_genre(conn, genre_id)
+    if genre is None:
+        return 0
+    return delete_books_for_category_name(conn, genre.name)
+
+
+def delete_books_for_category_name(conn: sqlite3.Connection, name: str) -> int:
+    """Удалить книги корня/категории по имени, включая подкатегории."""
+    ids = genre_ids_for_root(conn, name)
+    if not ids:
+        return 0
+    placeholders = ",".join("?" for _ in ids)
+    rows = conn.execute(
+        f"SELECT DISTINCT book_id FROM book_genres WHERE genre_id IN ({placeholders})",
+        ids,
+    ).fetchall()
+    return delete_books(conn, [int(row["book_id"]) for row in rows])
+
+
+def merge_category_root(
+    conn: sqlite3.Connection, source_name: str, target_id: int
+) -> tuple[int, int]:
+    """Объединить корень дерева (все его категории) с целевой категорией."""
+    source_name = (source_name or "").strip()
+    target = conn.execute("SELECT id, code, name FROM genres WHERE id = ?", (target_id,)).fetchone()
+    if target is None:
+        raise ValueError("Категория не найдена.")
+    rows = conn.execute("SELECT id, code, name FROM genres").fetchall()
+    source_key = source_name.casefold()
+    source_rows = [
+        row for row in rows
+        if str(row["name"]).casefold() == source_key
+        or str(row["name"]).casefold().startswith(source_key + "_")
+    ]
+    if not source_rows:
+        with conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO genre_aliases(genre_id, alias, alias_key, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (target_id, source_name, _key(source_name), utc_now()),
+            )
+        return 0, 0
+    moved = 0
+    removed = 0
+    # Если у корня есть собственная запись, merge_genres сразу заберёт
+    # и все подкатегории. Иначе объединяем каждую подкатегорию по очереди.
+    root_row = next(
+        (row for row in source_rows if str(row["name"]).casefold() == source_key),
+        None,
+    )
+    if root_row is not None:
+        moved, removed = merge_genres(conn, int(root_row["id"]), target_id)
+    else:
+        for name in [str(row["name"]) for row in source_rows]:
+            row = conn.execute("SELECT id FROM genres WHERE name = ?", (name,)).fetchone()
+            if row is None:
+                continue
+            one_moved, one_removed = merge_genres(conn, int(row["id"]), target_id)
+            moved += one_moved
+            removed += one_removed
+    with conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO genre_aliases(genre_id, alias, alias_key, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (target_id, source_name, _key(source_name), utc_now()),
+        )
+    return moved, removed
+
+
+def delete_books_for_series(conn: sqlite3.Connection, series_id: int) -> int:
+    rows = conn.execute("SELECT id FROM books WHERE series_id = ?", (series_id,)).fetchall()
+    return delete_books(conn, [int(row["id"]) for row in rows])
 
 
 def get_stats(conn: sqlite3.Connection) -> Stats:

@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Mapping, Sequence
 from urllib.parse import urlencode
 
-from .db import (    AuthorRef,
+from .db import (
+    AuthorRef,
     BookRef,
     GenreRef,
     OpdsSource,
@@ -24,12 +25,15 @@ from .db import (    AuthorRef,
     get_opds_source,
     get_series,
     get_stats,
+    genre_ids_for_root,
     list_authors,
     list_books,
+    list_genre_aliases,
     list_genres,
     list_parse_errors,
     list_series,
 )
+from .categories import build_category_tree, find_root, flatten_tree, web_url
 from .genres import genre_synonyms
 from .fb2 import Fb2Error, parse_fb2_file
 from .book_formats import format_label
@@ -47,6 +51,7 @@ from . import __version__
 
 PAGE_SIZE = 24
 FILTER_LIMIT = 2000
+TREE_LIMIT = 100000
 
 _NOTICES = {
     "saved": "Изменения сохранены.",
@@ -57,6 +62,8 @@ _NOTICES = {
     "source_deleted": "Источник удалён.",
     "downloaded": "Книга скачана в каталог и добавлена в библиотеку.",
     "archive_scanned": "Импорт из архивов завершён.",
+    "genres_merged": "Категории объединены, старые названия сохранены как алиасы.",
+    "bulk_deleted": "Книги удалены из каталога. Файлы на диске остались.",
 }
 _ERRORS = {
     "book": "Книга не найдена.",
@@ -70,6 +77,8 @@ _ERRORS = {
     "download": "Не удалось скачать книгу из источника.",
     "download_parse": "Файл скачан в библиотеку, но не распознан как FB2.",
     "archive_scan": "Не удалось импортировать архивы. Проверьте путь, даты и наличие 7-Zip/unrar.",
+    "merge": "Не удалось объединить категории.",
+    "bulk_delete": "Не удалось удалить выбранные книги.",
 }
 
 
@@ -241,6 +250,54 @@ def _card(book: BookRef, *, admin: bool = False) -> dict[str, object]:
     }
 
 
+def _tree_context(nodes) -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    for root in nodes:
+        result.append(
+            {
+                "label": root.label,
+                "url": web_url(root),
+                "books": root.books,
+                "children": [
+                    {
+                        "label": child.label,
+                        "url": web_url(child),
+                        "books": child.books,
+                    }
+                    for child in root.children
+                ],
+            }
+        )
+    return result
+
+
+def _category_tree(conn) -> SafeString:
+    genres, _ = list_genres(conn, limit=TREE_LIMIT)
+    roots = _tree_context(build_category_tree(genres))
+    return mark_safe(render("partials/category_tree.html", roots=roots))
+
+
+def _category_options(conn) -> list[dict[str, object]]:
+    genres, _ = list_genres(conn, limit=TREE_LIMIT)
+    return [
+        {
+            "id": item["genre_id"],
+            "name": ("— " * int(item["depth"])) + str(item["label"]),
+            "count": item["books"],
+        }
+        for item in flatten_tree(build_category_tree(genres))
+        if item["genre_id"] is not None
+    ]
+
+
+def _category_root_options(conn) -> list[dict[str, object]]:
+    genres, _ = list_genres(conn, limit=TREE_LIMIT)
+    return [
+        {"name": root.name, "label": root.label, "count": root.books}
+        for root in build_category_tree(genres)
+    ]
+
+
 def _filters(
     conn,
     query: Mapping[str, list[str]],
@@ -253,7 +310,7 @@ def _filters(
     series_id = _opt_int(query, "series_id")
 
     authors, _ = list_authors(conn, limit=FILTER_LIMIT)
-    genres, _ = list_genres(conn, limit=FILTER_LIMIT)
+    genres = _category_options(conn)
     series, _ = list_series(conn, limit=FILTER_LIMIT)
     return mark_safe(
         render(
@@ -265,7 +322,7 @@ def _filters(
                 for item in authors
             ],
             genres=[
-                {"id": item.id, "name": item.name, "count": item.books, "selected": item.id == genre_id}
+                {"id": item["id"], "name": item["name"], "count": item["count"], "selected": item["id"] == genre_id}
                 for item in genres
             ],
             series=[
@@ -316,7 +373,6 @@ def index_page(conn, *, notice: str = "", error: str = "") -> bytes:
     stats = get_stats(conn)
     latest, _ = list_books(conn, limit=8, sort="new")
     authors, _ = list_authors(conn, limit=8)
-    genres, _ = list_genres(conn, limit=10)
     series, _ = list_series(conn, limit=8)
 
     body = render(
@@ -331,19 +387,7 @@ def index_page(conn, *, notice: str = "", error: str = "") -> bytes:
                 for item in authors
             ],
         ),
-        genres_collection=_collection(
-            "Категории",
-            "/ui/genres",
-            [
-                {
-                    "url": f"/ui/books?genre_id={item.id}",
-                    "name": item.name,
-                    "count": item.books,
-                    "synonyms": ", ".join(genre_synonyms(item.code)),
-                }
-                for item in genres
-            ],
-        ),
+        genres_collection=_category_tree(conn),
         series_collection=_collection(
             "Серии",
             "/ui/series",
@@ -368,17 +412,22 @@ def books_page(
     author_id = _opt_int(query, "author_id")
     genre_id = _opt_int(query, "genre_id")
     series_id = _opt_int(query, "series_id")
+    category_root_name = _param(query, "category_root")[:200]
     page = _int_param(query, "page", 1)
     path = "/admin/books" if admin else "/ui/books"
 
     author = get_author(conn, author_id) if author_id else None
     genre = get_genre(conn, genre_id) if genre_id else None
     series = get_series(conn, series_id) if series_id else None
+    genres, _ = list_genres(conn, limit=TREE_LIMIT)
+    root_node = find_root(build_category_tree(genres), category_root_name) if category_root_name else None
+    root_ids = genre_ids_for_root(conn, root_node.name) if root_node else None
 
     books, total = list_books(
         conn,
         author_id=author.id if author else None,
         genre_id=genre.id if genre else None,
+        genre_ids=root_ids,
         series_id=series.id if series else None,
         query=q or None,
         offset=(page - 1) * PAGE_SIZE,
@@ -391,6 +440,7 @@ def books_page(
             conn,
             author_id=author.id if author else None,
             genre_id=genre.id if genre else None,
+            genre_ids=root_ids,
             series_id=series.id if series else None,
             query=q or None,
             offset=(page - 1) * PAGE_SIZE,
@@ -401,6 +451,8 @@ def books_page(
         title = f"Книги автора: {author.name}"
     elif genre:
         title = f"Категория: {genre.name}"
+    elif root_node:
+        title = f"Раздел: {root_node.name}"
     elif series:
         title = f"Серия: {series.name}"
     elif q:
@@ -412,6 +464,7 @@ def books_page(
         "q": q,
         "author_id": author.id if author else None,
         "genre_id": genre.id if genre else None,
+        "category_root": root_node.name if root_node else None,
         "series_id": series.id if series else None,
     }
     body = render(
@@ -421,6 +474,7 @@ def books_page(
         word=_books_word(total),
         admin=admin,
         filters=_filters(conn, query, action=path),
+        category_tree=_category_tree(conn),
         cards=[_card(book, admin=admin) for book in books],
         pagination=_pagination(path, params, page, pages),
     )
@@ -449,27 +503,11 @@ def authors_page(conn, query: Mapping[str, list[str]], *, notice: str = "", erro
 
 
 def genres_page(conn, query: Mapping[str, list[str]], *, notice: str = "", error: str = "") -> bytes:
-    page = _int_param(query, "page", 1)
-    genres, total = list_genres(conn, offset=(page - 1) * 100, limit=100)
-    pages = max(1, (total + 99) // 100)
-    if page > pages:
-        page = pages
-        genres, total = list_genres(conn, offset=(page - 1) * 100, limit=100)
+    genres, total = list_genres(conn, limit=TREE_LIMIT)
     body = render(
-        "collection_page.html",
-        title="Категории",
+        "genre_tree.html",
         total_label=f"{total} категорий",
-        items=[
-            {
-                "url": f"/ui/books?genre_id={item.id}",
-                "name": item.name,
-                "count": item.books,
-                "synonyms": ", ".join(genre_synonyms(item.code)),
-            }
-            for item in genres
-        ],
-        empty="Категории не найдены.",
-        pagination=_pagination("/ui/genres", {}, page, pages),
+        tree=_category_tree(conn),
     )
     return _layout("Категории", body, active="genres", notice=notice, error=error)
 
@@ -601,6 +639,10 @@ def admin_page(
     stats = get_stats(conn)
     errors = [dict(row) for row in list_parse_errors(conn, limit=20)]
     archive_summary = (query.get("archive_summary", [""])[0] or "").strip()[:2000]
+    genre_options = _category_options(conn)
+    category_roots = _category_root_options(conn)
+    series_options, _ = list_series(conn, limit=FILTER_LIMIT)
+    aliases = list_genre_aliases(conn, limit=300)
     body = render(
         "admin.html",
         stats=_stats_html(stats),
@@ -610,6 +652,10 @@ def admin_page(
         sources_count=count_opds_sources(conn),
         errors=errors,
         archive_summary=archive_summary,
+        genre_options=genre_options,
+        category_roots=category_roots,
+        series_options=series_options,
+        aliases=aliases,
     )
     return _layout("Администрирование", body, active="admin", notice=notice, error=error)
 

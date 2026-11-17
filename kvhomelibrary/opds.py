@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, Mapping
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import xml.etree.ElementTree as ET
 
@@ -34,6 +34,7 @@ from .db import (
     get_stats,
 )
 from .genres import genre_name
+from .categories import CategoryNode, opds_url
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
 DC_NS = "http://purl.org/dc/terms/"
@@ -368,6 +369,87 @@ def genres_feed(
             kind=ACQ_TYPE,
         )
     _add_pagination(feed, base_url, "/opds/genres", {}, page, pages)
+    return to_xml(feed)
+
+
+def tree_genres_feed(
+    base_url: str,
+    *,
+    roots: Iterable[CategoryNode],
+    total_books: int,
+) -> bytes:
+    """Навигационный OPDS-фид с деревом категорий."""
+    start = _url(base_url, "/opds")
+    self_url = _url(base_url, "/opds/genres")
+    roots = list(roots)
+    feed = _new_feed(
+        "Категории",
+        self_url,
+        kind=NAV_TYPE,
+        start_url=start,
+        up_url=start,
+        search_url=_url(base_url, "/opds/opensearch.xml"),
+        subtitle=f"Разделов: {len(roots)} · книг: {total_books}",
+    )
+    for root in roots:
+        root_href = _url(base_url, opds_url(root))
+        _nav_entry(
+            feed,
+            title=root.label,
+            href=root_href,
+            seed=root_href,
+            content=f"{root.books} {_books_word(root.books)}",
+            kind=ACQ_TYPE if not root.children else NAV_TYPE,
+        )
+        for child in root.children:
+            child_href = _url(base_url, opds_url(child))
+            _nav_entry(
+                feed,
+                title=f"{root.label} / {child.label}",
+                href=child_href,
+                seed=child_href,
+                content=f"{child.books} {_books_word(child.books)}",
+                kind=ACQ_TYPE,
+            )
+    return to_xml(feed)
+
+
+def category_root_feed(
+    base_url: str,
+    root: CategoryNode,
+) -> bytes:
+    """Навигация по корню дерева: подкатегории и все книги раздела."""
+    start = _url(base_url, "/opds")
+    root_path = "/opds/genres/root/" + quote(root.name, safe="")
+    self_url = _url(base_url, root_path)
+    feed = _new_feed(
+        f"Категория: {root.label}",
+        self_url,
+        kind=NAV_TYPE,
+        start_url=start,
+        up_url=_url(base_url, "/opds/genres"),
+        search_url=_url(base_url, "/opds/opensearch.xml"),
+        subtitle=f"Раздел · {root.books} {_books_word(root.books)}",
+    )
+    for child in root.children:
+        child_href = _url(base_url, opds_url(child))
+        _nav_entry(
+            feed,
+            title=child.label,
+            href=child_href,
+            seed=child_href,
+            content=f"{child.books} {_books_word(child.books)}",
+            kind=ACQ_TYPE,
+        )
+    all_href = _url(base_url, root_path + "/books")
+    _nav_entry(
+        feed,
+        title="Все книги раздела",
+        href=all_href,
+        seed=all_href,
+        content=f"{root.books} {_books_word(root.books)}",
+        kind=ACQ_TYPE,
+    )
     return to_xml(feed)
 
 

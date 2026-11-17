@@ -227,3 +227,28 @@ body.modal-open { overflow: hidden; }
 }
 .import-progress.is-error .progress-fill { background: var(--danger); }
 .import-progress.is-done .progress-fill { background: #12b76a; }
+
+.category-tree { margin-top: 14px; }
+.category-tree-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.category-tree-head h2 { margin: 0 0 10px; }
+.category-tree-body { display: grid; gap: 8px; }
+.category-root { border-bottom: 1px solid var(--line); padding: 6px 0 8px; }
+.category-root:last-child { border-bottom: 0; }
+.category-root-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-weight: 600; color: var(--ink); text-decoration: none;
+}
+.category-root-link:hover { color: var(--accent); }
+.category-children {
+  display: grid; gap: 2px; margin: 5px 0 0 18px;
+}
+.category-child-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  color: var(--ink); text-decoration: none; font-size: 13px; padding: 2px 0;
+}
+.category-child-link:hover { color: var(--accent); }
+.category-tree .count { color: var(--muted); font-size: 12px; }
+.aliases-list { max-height: 180px; overflow: auto; margin-top: 5px; }
+.aliases-list div { padding: 1px 0; }

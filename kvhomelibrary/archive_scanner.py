@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 import shutil
 import subprocess
@@ -26,6 +25,7 @@ from .db import (
     upsert_book,
 )
 from .fb2 import Fb2Error
+from .storage import ensure_parent, target_path
 
 ARCHIVE_SUFFIXES = {".zip", ".7z", ".rar"}
 MAX_ENTRY_BYTES = 512 * 1024 * 1024
@@ -380,11 +380,27 @@ def scan_archives(
                         continue
                     report.files_seen += 1
                     try:
-                        digest = hashlib.sha256(data).hexdigest()
-                        target = imported / f"{digest}.zip"
                         original_name = _entry_basename(name) or f"book.{fmt}"
+                        book = build_book(data, original_name, fmt, "")
+                        target = target_path(
+                            library,
+                            book,
+                            archive_zip=True,
+                            original_name=original_name,
+                        )
+                        book.source_path = str(target)
+                        existing = conn.execute(
+                            "SELECT id, file_path FROM books WHERE file_hash = ?",
+                            (book.file_hash,),
+                        ).fetchone()
+                        if existing is not None and os.path.normcase(
+                            os.path.abspath(str(existing["file_path"]))
+                        ) != os.path.normcase(os.path.abspath(str(target))):
+                            report.duplicates += 1
+                            notify()
+                            continue
+                        ensure_parent(target)
                         _write_zip(target, original_name, data)
-                        book = build_book(data, original_name, fmt, str(target))
                         _, status = upsert_book(
                             conn,
                             book,

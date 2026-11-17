@@ -263,8 +263,9 @@ class SourceWebTests(unittest.TestCase):
         row = self.conn.execute("SELECT title FROM books").fetchone()
         self.assertIsNotNone(row)
         self.assertEqual(row["title"], "Белая гвардия")
-        files = list((self.library / "OPDS").glob("*.fb2"))
+        files = list(self.library.rglob("*.fb2"))
         self.assertEqual(len(files), 1)
+        self.assertIn("ru", files[0].parts)
         source = get_opds_source(self.conn, source_id)
         self.assertIsNotNone(source)
         self.assertEqual(source.last_error, "")  # type: ignore[union-attr]
@@ -289,7 +290,7 @@ class SourceWebTests(unittest.TestCase):
         payload = json.loads(body)
         self.assertTrue(payload["ok"])
         self.assertIn("book_url", payload)
-        self.assertEqual(len(list((self.library / "OPDS").glob("*.fb2"))), 1)
+        self.assertEqual(len(list(self.library.rglob("*.fb2"))), 1)
 
     def test_ajax_download_error(self) -> None:
         source_id = self._create_source()

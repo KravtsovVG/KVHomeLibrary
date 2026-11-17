@@ -1,0 +1,30 @@
+<div class="panel category-tree">
+  <div class="category-tree-head">
+    <h2>Дерево категорий</h2>
+    <a class="small" href="/ui/genres">все категории</a>
+  </div>
+  {% if roots %}
+  <div class="category-tree-body">
+    {% for root in roots %}
+    <div class="category-root">
+      <a class="category-root-link" href="{{ root.url }}">
+        <span>{{ root.label }}</span>
+        <span class="count">{{ root.books }}</span>
+      </a>
+      {% if root.children %}
+      <div class="category-children">
+        {% for child in root.children %}
+        <a class="category-child-link" href="{{ child.url }}">
+          <span>{{ child.label }}</span>
+          <span class="count">{{ child.books }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">Категории не найдены.</div>
+  {% endif %}
+</div>

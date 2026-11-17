@@ -71,10 +71,17 @@ class ArchiveScannerTests(unittest.TestCase):
         self.assertEqual(rows["fb2"]["title"], "Белая гвардия")
         self.assertEqual(rows["pdf"]["title"], "PDF Book")
         self.assertEqual(rows["pdf"]["file_name"], "book.pdf")
+        self.assertEqual(
+            Path(rows["fb2"]["file_path"]).parent,
+            self.library / "ru" / "Классическая проза" / "Русская классика",
+        )
+        self.assertEqual(
+            Path(rows["pdf"]["file_path"]).parent,
+            self.library / "ЯзыкНеизвестен" / "БезКатегории",
+        )
         for row in rows.values():
             path = Path(row["file_path"])
             self.assertTrue(path.is_file())
-            self.assertEqual(path.parent, self.library / "imported")
         payload, name, mime = read_book_payload(
             rows["pdf"]["file_path"], "pdf", rows["pdf"]["file_name"]
         )

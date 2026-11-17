@@ -7,6 +7,7 @@ import binascii
 import hmac
 import json
 import logging
+import os
 import re
 import secrets
 import socket
@@ -23,6 +24,7 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse
 from . import __version__, web
 from .archive_scanner import ArchiveError, scan_archives
 from .book_formats import format_mime, read_book_payload
+from .categories import build_category_tree, find_root
 from .db import (
     connect_db,
     count_authors,
@@ -31,6 +33,9 @@ from .db import (
     count_series,
     create_opds_source,
     delete_books,
+    delete_books_for_category_name,
+    delete_books_for_genre,
+    delete_books_for_series,
     delete_opds_source,
     get_author,
     get_book,
@@ -38,12 +43,15 @@ from .db import (
     get_opds_source,
     get_series,
     get_stats,
+    genre_ids_for_root,
     init_db,
     list_authors,
     list_books,
     list_genres,
     list_series,
     mark_opds_source,
+    merge_category_root,
+    merge_genres,
     record_parse_error,
     reindex_fts,
     update_book_metadata,
@@ -57,6 +65,7 @@ from .opds import (
     author_books_feed,
     authors_feed,
     books_feed,
+    category_root_feed,
     genre_books_feed,
     genres_feed,
     opensearch_xml,
@@ -65,9 +74,11 @@ from .opds import (
     series_books_feed,
     series_feed,
     single_book_feed,
+    tree_genres_feed,
 )
 from .opds_client import OpdsError, download_fb2, fetch_feed
 from .scanner import scan_library
+from .storage import ensure_parent, target_path
 
 LOGGER = logging.getLogger("kvhomelibrary.server")
 
@@ -645,7 +656,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
             try:
                 result = download_fb2(
                     href,
-                    library / "OPDS",
+                    library / ".downloads",
                     suggested_name=title,
                     username=source.username,
                     password=source.password,
@@ -663,10 +674,22 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
 
             try:
                 book = parse_fb2_file(result.path)
+                target = target_path(
+                    library,
+                    book,
+                    archive_zip=result.path.suffix.casefold() == ".zip",
+                    original_name=result.path.name,
+                )
+                if target != result.path:
+                    ensure_parent(target)
+                    if target.exists():
+                        target.unlink()
+                    os.replace(result.path, target)
+                book.source_path = str(target)
                 book_id, _ = upsert_book(
                     conn,
                     book,
-                    mtime=result.path.stat().st_mtime,
+                    mtime=target.stat().st_mtime,
                     covers_dir=self.config.covers_dir,
                 )
             except Fb2Error as exc:
@@ -714,6 +737,49 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                 )
             else:
                 self._redirect(f"/admin/books/{book_id}?notice=downloaded", 303)
+            return
+
+        if path == "/admin/delete-series":
+            try:
+                series_id = int(value("series_id"))
+            except ValueError:
+                self._redirect("/admin?error=bulk_delete", 303)
+                return
+            deleted = delete_books_for_series(conn, series_id)
+            if deleted:
+                self._redirect("/admin?notice=bulk_deleted", 303)
+            else:
+                self._redirect("/admin?error=bulk_delete", 303)
+            return
+
+        if path == "/admin/delete-genre":
+            raw_genre = value("genre_id")
+            try:
+                if raw_genre.startswith("root:"):
+                    deleted = delete_books_for_category_name(conn, raw_genre[5:])
+                else:
+                    deleted = delete_books_for_genre(conn, int(raw_genre))
+            except ValueError:
+                self._redirect("/admin?error=bulk_delete", 303)
+                return
+            if deleted:
+                self._redirect("/admin?notice=bulk_deleted", 303)
+            else:
+                self._redirect("/admin?error=bulk_delete", 303)
+            return
+
+        if path == "/admin/genres/merge":
+            raw_source = value("source_id")
+            try:
+                target_id = int(value("target_id"))
+                if raw_source.startswith("root:"):
+                    merge_category_root(conn, raw_source[5:], target_id)
+                else:
+                    merge_genres(conn, int(raw_source), target_id)
+            except ValueError:
+                self._redirect("/admin?error=merge", 303)
+                return
+            self._redirect("/admin?notice=genres_merged", 303)
             return
 
         delete_match = _ADMIN_DELETE_PATH_RE.match(path)
@@ -1001,20 +1067,65 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
         elif _AUTHOR_PATH_RE.match(path):
             self._author(conn, int(_AUTHOR_PATH_RE.match(path).group(1)), base_url, page, page_size, head)  # type: ignore[union-attr]
         elif path == "/opds/genres":
-            total = count_genres(conn)
-            pages = _page_count(total, page_size)
-            page = min(page, pages)
-            genres, _ = list_genres(conn, offset=(page - 1) * page_size, limit=page_size)
+            genres, _ = list_genres(conn, limit=100000)
+            roots = build_category_tree(genres)
+            total_books = sum(node.books for node in roots)
             self._send_bytes(
-                genres_feed(
+                tree_genres_feed(
+                    base_url,
+                    roots=roots,
+                    total_books=total_books,
+                ),
+                NAV_TYPE,
+                head=head,
+            )
+        elif path.startswith("/opds/genres/root/"):
+            raw = path[len("/opds/genres/root/"):]
+            books_only = raw.endswith("/books")
+            root_name = raw[:-len("/books")] if books_only else raw
+            genres, _ = list_genres(conn, limit=100000)
+            root = find_root(build_category_tree(genres), root_name)
+            if root is None:
+                self._send_text("Категория не найдена", 404, head=head)
+                return
+            root_path = "/opds/genres/root/" + quote(root.name, safe="")
+            if not books_only:
+                self._send_bytes(
+                    category_root_feed(base_url, root),
+                    NAV_TYPE,
+                    head=head,
+                )
+                return
+            ids = genre_ids_for_root(conn, root.name)
+            books, total = list_books(
+                conn,
+                genre_ids=ids,
+                offset=(page - 1) * page_size,
+                limit=page_size,
+            )
+            pages = _page_count(total, page_size)
+            if page > pages:
+                page = pages
+                books, total = list_books(
+                    conn,
+                    genre_ids=ids,
+                    offset=(page - 1) * page_size,
+                    limit=page_size,
+                )
+            self._send_bytes(
+                books_feed(
                     conn,
                     base_url,
                     page=page,
                     page_size=page_size,
                     total=total,
-                    genres=genres,
+                    books=books,
+                    title=f"Категория: {root.name}",
+                    path=root_path + "/books",
+                    up_url=base_url.rstrip("/") + root_path,
+                    subtitle=f"Раздел · {total} {_books_word(total)}",
                 ),
-                NAV_TYPE,
+                ACQ_TYPE,
                 head=head,
             )
         elif _GENRE_PATH_RE.match(path):

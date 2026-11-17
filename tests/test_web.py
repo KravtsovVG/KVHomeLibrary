@@ -109,10 +109,38 @@ class WebUiTests(unittest.TestCase):
             self.assertIn(marker, body.decode("utf-8"), path)
             self.assertIn("KVHomeLibrary", body.decode("utf-8"), path)
         _, _, genres_body = self._get("/ui/genres")
-        self.assertIn("синонимы:", genres_body.decode("utf-8"))
+        self.assertIn("Дерево категорий", genres_body.decode("utf-8"))
         _, _, book_body = self._get(f"/ui/books/{self.ids[BULGAKOV.name]}")
         self.assertIn("все книги серии →", book_body.decode("utf-8"))
         self.assertIn("series_id=", book_body.decode("utf-8"))
+
+    def test_admin_merge_and_bulk_delete(self) -> None:
+        rows = {
+            str(row["code"]): int(row["id"])
+            for row in self.conn.execute("SELECT id, code FROM genres")
+        }
+        status, _, _ = self._post(
+            "/admin/genres/merge",
+            {"source_id": str(rows["detective"]), "target_id": str(rows["sf_fantasy"])},
+        )
+        self.assertEqual(status, 200)
+        alias = self.conn.execute(
+            "SELECT alias FROM genre_aliases WHERE alias = 'Детектив'"
+        ).fetchone()
+        self.assertIsNotNone(alias)
+        self.assertIsNone(
+            self.conn.execute(
+                "SELECT id FROM genres WHERE code = 'detective'"
+            ).fetchone()
+        )
+
+        status, _, _ = self._post(
+            "/admin/delete-genre", {"genre_id": str(rows["sf_fantasy"])}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) AS n FROM books").fetchone()["n"], 2
+        )
 
     def test_search_and_filters(self) -> None:
         _, _, body = self._get("/ui/books?" + urllib.parse.urlencode({"q": "Дозор"}))

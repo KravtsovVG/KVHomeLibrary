@@ -25,8 +25,8 @@
 
     <form method="post" action="/admin/archive-scan" class="panel" style="margin-top:14px" id="archive-import-form">
       <h2 style="margin-top:0">Импорт из архивов</h2>
-      <p class="muted small">Берутся ZIP, 7Z и RAR. Найденные книги упаковываются в ZIP
-      в <code>{{ library_path }}/imported</code>. Для 7Z/RAR нужен 7-Zip или unrar.</p>
+      <p class="muted small">Берутся ZIP, 7Z и RAR. Найденные книги раскладываются
+      в <code>{{ library_path }}/язык/категория/серия</code>. Для 7Z/RAR нужен 7-Zip или unrar.</p>
       {% if archive_summary %}<div class="okbox">{{ archive_summary }}</div>{% endif %}
       <div id="archive-progress" class="import-progress" hidden>
         <div class="import-progress-head">
@@ -82,6 +82,55 @@
     </ul>
   </div>
 </div>
+<div class="grid-2" style="margin-top:14px">
+  <form method="post" action="/admin/genres/merge" class="panel">
+    <h2 style="margin-top:0">Объединение категорий</h2>
+    <p class="muted small">Книги присоединённой категории перейдут в целевую.
+    Старые названия сохранятся как алиасы.</p>
+    <label class="field-label" for="merge-source">Присоединить категорию</label>
+    <select id="merge-source" name="source_id" required>
+      <option value="">— выберите —</option>
+      {% for item in category_roots %}<option value="root:{{ item.name }}">Раздел: {{ item.label }} ({{ item.count }})</option>{% endfor %}
+      {% for item in genre_options %}<option value="{{ item.id }}">{{ item.name }} ({{ item.count }})</option>{% endfor %}
+    </select>
+    <label class="field-label" for="merge-target" style="margin-top:8px">К категории</label>
+    <select id="merge-target" name="target_id" required>
+      <option value="">— выберите —</option>
+      {% for item in genre_options %}<option value="{{ item.id }}">{{ item.name }} ({{ item.count }})</option>{% endfor %}
+    </select>
+    <div class="form-actions"><button class="btn" type="submit" onclick="return confirm('Объединить категории?')">Объединить</button></div>
+    {% if aliases %}
+    <div class="small" style="margin-top:12px">Алиасы:</div>
+    <div class="aliases-list">
+      {% for item in aliases %}<div class="small muted"><b>{{ item.alias }}</b> → {{ item.target }}</div>{% endfor %}
+    </div>
+    {% endif %}
+  </form>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Массовое удаление</h2>
+    <p class="muted small">Удаляются записи каталога; файлы на диске остаются.</p>
+    <form method="post" action="/admin/delete-series" onsubmit="return confirm('Удалить все книги выбранной серии?')">
+      <label class="field-label" for="delete-series">Серия</label>
+      <select id="delete-series" name="series_id" required>
+        <option value="">— выберите —</option>
+        {% for item in series_options %}<option value="{{ item.id }}">{{ item.name }} ({{ item.books }})</option>{% endfor %}
+      </select>
+      <div class="form-actions"><button class="btn secondary" type="submit">Удалить серию</button></div>
+    </form>
+    <hr>
+    <form method="post" action="/admin/delete-genre" onsubmit="return confirm('Удалить все книги выбранной категории и её подкатегорий?')">
+      <label class="field-label" for="delete-genre">Категория</label>
+      <select id="delete-genre" name="genre_id" required>
+        <option value="">— выберите —</option>
+        {% for item in category_roots %}<option value="root:{{ item.name }}">Раздел: {{ item.label }} ({{ item.count }})</option>{% endfor %}
+        {% for item in genre_options %}<option value="{{ item.id }}">{{ item.name }} ({{ item.count }})</option>{% endfor %}
+      </select>
+      <div class="form-actions"><button class="btn secondary" type="submit">Удалить категорию</button></div>
+    </form>
+  </div>
+</div>
+
 {% if errors %}
 <h2>Ошибки разбора</h2>
 <div class="panel" style="overflow:auto">

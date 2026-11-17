@@ -133,7 +133,7 @@ if (Test-Path -LiteralPath (Join-Path $InstallPath ".git")) {
 New-Item -ItemType Directory -Path $DataPath -Force | Out-Null
 New-Item -ItemType Directory -Path $CoversPath -Force | Out-Null
 New-Item -ItemType Directory -Path $LibraryPath -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $LibraryPath "OPDS") -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $LibraryPath ".downloads") -Force | Out-Null
 
 if (-not $SkipScan) {
     $books = Get-ChildItem -LiteralPath $LibraryPath -Recurse -File -Filter *.fb2 -ErrorAction SilentlyContinue | Select-Object -First 1

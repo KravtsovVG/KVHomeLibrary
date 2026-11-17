@@ -32,7 +32,7 @@ sudo apt install p7zip-full unrar
 | Код | `/opt/kvhomelibrary` |
 | База и обложки | `/var/lib/kvhomelibrary` |
 | Книги FB2 | `/srv/books` |
-| Скачанные OPDS-книги | `/srv/books/OPDS` |
+| Скачанные OPDS-книги | `/srv/books/.downloads` → `/srv/books/<язык>/<категория>/<серия>` |
 | Сервис | `kvhomelibrary.service` |
 | Порт | `8080` |
 

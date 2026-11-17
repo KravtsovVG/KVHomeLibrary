@@ -5,6 +5,7 @@
   </div>
   {% if admin %}<a class="btn secondary" href="/admin/books">Администрирование книг</a>{% endif %}
 </div>
+{{ category_tree|safe }}
 {{ filters|safe }}
 <div class="books" style="margin-top:16px">
 {% if cards %}
