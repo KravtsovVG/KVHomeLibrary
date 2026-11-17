@@ -1,18 +1,18 @@
-<h1>Управление категориями</h1>
-<p class="muted">Можно переименовать категорию для отображения, переместить её
-в другой раздел дерева или объединить с другой категорией.</p>
+<h1>Управление жанрами</h1>
+<p class="muted">Можно переименовать жанр для отображения, переместить её
+в другой раздел дерева или объединить с другой жанром.</p>
 
 <div class="panel">
-  <h2 style="margin-top:0">Объединение категорий</h2>
+  <h2 style="margin-top:0">Объединение жанров</h2>
   <form method="post" action="/admin/genres/merge" class="form-grid"
-        onsubmit="return confirm('Объединить категории? Книги будут перенесены.')">
+        onsubmit="return confirm('Объединить жанры? Книги будут перенесены.')">
     <label>Присоединить
       <select name="source_id" required>
         <option value="">— выберите —</option>
         {% for item in rows %}<option value="{{ item.id }}">{{ item.label }} ({{ item.books }})</option>{% endfor %}
       </select>
     </label>
-    <label>К категории
+    <label>К жанру
       <select name="target_id" required>
         <option value="">— выберите —</option>
         {% for item in rows %}<option value="{{ item.id }}">{{ item.label }} ({{ item.books }})</option>{% endfor %}
@@ -28,7 +28,7 @@
   {% endif %}
 </div>
 
-<h2>Дерево категорий</h2>
+<h2>Дерево жанров</h2>
 <div class="category-admin-list">
   {% for item in rows %}
   <form method="post" action="/admin/genres/update" class="panel category-admin-row">

@@ -104,7 +104,7 @@ def organize_library(
     prune_empty: bool = False,
     progress: Callable[[int, int, Path], None] | None = None,
 ) -> OrganizeReport:
-    """Переместить/скопировать книги в ``язык/категория/серия``."""
+    """Переместить/скопировать книги в ``язык/жанр/серия``."""
     library = Path(library_dir).expanduser().resolve()
     if not library.is_dir():
         raise NotADirectoryError(f"каталог не найден: {library}")

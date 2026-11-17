@@ -171,7 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     organize_parser = subparsers.add_parser(
         "organize",
-        help="разложить существующий каталог книг по язык/категория/серия",
+        help="разложить существующий каталог книг по язык/жанр/серия",
     )
     _add_db_option(organize_parser)
     organize_parser.add_argument(
@@ -407,7 +407,7 @@ def cmd_stats(args: argparse.Namespace) -> int:
         stats = get_stats(conn)
         print(f"Книг:             {stats.books}")
         print(f"Авторов:          {stats.authors}")
-        print(f"Категорий:        {stats.genres}")
+        print(f"Жанров:        {stats.genres}")
         print(f"Серий:            {stats.series}")
         print(f"Ошибок разбора:   {stats.failed}")
         print(f"Размер файлов:    {_format_size(stats.total_size)}")

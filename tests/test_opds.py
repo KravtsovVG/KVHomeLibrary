@@ -82,7 +82,7 @@ class OpdsFeedTests(unittest.TestCase):
         entries = _entries(root)
         self.assertEqual(len(entries), 4)
         titles = {entry.findtext(f"{{{opds.ATOM_NS}}}title") for entry in entries}
-        self.assertEqual(titles, {"Авторы", "Категории", "Серии", "Все книги"})
+        self.assertEqual(titles, {"Авторы", "Жанры", "Серии", "Все книги"})
 
         self_link = _links(root, "self")[0]
         self.assertEqual(self_link.get("href"), BASE + "/opds")

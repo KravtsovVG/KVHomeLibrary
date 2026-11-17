@@ -77,7 +77,7 @@ class ArchiveScannerTests(unittest.TestCase):
         )
         self.assertEqual(
             Path(rows["pdf"]["file_path"]).parent,
-            self.library / "ЯзыкНеизвестен" / "БезКатегории",
+            self.library / "ЯзыкНеизвестен" / "БезЖанра",
         )
         for row in rows.values():
             path = Path(row["file_path"])

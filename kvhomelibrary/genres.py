@@ -208,9 +208,12 @@ GENRE_NAMES: dict[str, str] = {
     "art_etc": "Искусство (прочее)",
 }
 
+# Официальные коды жанров FictionBook 2.1 (до расширений для LitRes/Flibusta).
+FB2_GENRE_NAMES: dict[str, str] = dict(GENRE_NAMES)
+
 # Коды, которые встречаются в библиотеках LitRes, Flibusta и самодельных
 # сборниках. Это не всегда коды схемы FB2, но показывать пользователю
-# английский идентификатор вместо категории нельзя.
+# английский идентификатор вместо жанра нельзя.
 GENRE_NAMES.update(
     {
         "network_literature": "Сетевая литература",
@@ -242,7 +245,7 @@ GENRE_NAMES.update(
         "popular_business": "Популярный бизнес",
         "economics_ref": "Экономика: справочники",
         "banking": "Банковское дело",
-        "unrecognised": "Без категории",
+        "unrecognised": "Без жанра",
         "unfinished": "Незавершённое",
         "science": "Наука",
         "sci_popular": "Научно-популярная литература",
@@ -253,13 +256,13 @@ GENRE_NAMES.update(
         "fanfiction": "Фанфикшн",
         "religion_self": "Религия и саморазвитие",
         "paranormal": "Паранормальные явления",
-        "unknown": "Без категории",
+        "unknown": "Без жанра",
     }
 )
 
 # Синонимы и варианты написания кодов. Ключи — в нижнем регистре.
 # Нужны, чтобы «sf-action», «sf_action» и «Боевая фантастика» были одной
-# категорией, а не тремя разными.
+# жанром, а не тремя разными.
 GENRE_ALIASES: dict[str, str] = {
     "фантастика": "sf",
     "фантастическая литература": "sf",
@@ -372,7 +375,7 @@ GENRE_SYNONYMS: dict[str, tuple[str, ...]] = {
     "popular_business": ("бизнес для всех", "популярная экономика"),
     "economics_ref": ("экономические справочники", "экономика"),
     "banking": ("банковское дело", "финансы"),
-    "unrecognised": ("без категории", "неопределённый жанр"),
+    "unrecognised": ("без жанра", "неопределённый жанр"),
     "unfinished": ("незаконченное", "незавершённая книга"),
     "science": ("научная литература", "наука"),
     "sci_popular": ("научпоп", "популярная наука"),
@@ -424,7 +427,7 @@ GENRE_SYNONYMS: dict[str, tuple[str, ...]] = {
 
 
 def normalize_genre(code: str) -> str:
-    """Привести код/название категории к каноническому коду."""
+    """Привести код/название жанра к каноническому коду."""
     value = (code or "").strip()
     if not value:
         return "unknown"
@@ -447,11 +450,11 @@ def normalize_genre(code: str) -> str:
 def genre_name(code: str) -> str:
     """Русское название жанра по коду FB2 (или сам код)."""
     canonical = normalize_genre(code)
-    return GENRE_NAMES.get(canonical, code.strip() if code else "Без категории")
+    return GENRE_NAMES.get(canonical, code.strip() if code else "Без жанра")
 
 
 def genre_synonyms(code: str) -> tuple[str, ...]:
-    """Русские синонимы категории без повторения основного названия."""
+    """Русские синонимы жанра без повторения основного названия."""
     canonical = normalize_genre(code)
     primary = genre_name(code).casefold()
     result: list[str] = []

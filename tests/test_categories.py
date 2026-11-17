@@ -24,10 +24,10 @@ from tests.support import WorkspaceTempDir
 
 class CategoryTreeTests(unittest.TestCase):
     def test_split_by_first_underscore(self) -> None:
-        self.assertEqual(split_category("Основная_Подкатегория"), ("Основная", "Подкатегория"))
+        self.assertEqual(split_category("Основная_Поджанр"), ("Основная", "Поджанр"))
         self.assertEqual(split_category("A_B_C"), ("A", "B_C"))
         self.assertEqual(split_category("БезРазделителя"), ("БезРазделителя", ""))
-        self.assertEqual(category_root("Основная_Подкатегория"), "Основная")
+        self.assertEqual(category_root("Основная_Поджанр"), "Основная")
 
     def test_tree_aggregates_books(self) -> None:
         genres = [
@@ -131,7 +131,7 @@ class StoragePathTests(unittest.TestCase):
         book = ParsedBook(
             title="Книга",
             sort_key="книга",
-            genres=["Основная_Подкатегория"],
+            genres=["Основная_Поджанр"],
             lang="ru",
             series="Серия",
             file_name="book.fb2",

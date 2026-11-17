@@ -4,7 +4,7 @@
 
 * ``/opds`` — корень;
 * ``/opds/authors`` — авторы;
-* ``/opds/genres`` — категории (жанры);
+* ``/opds/genres`` — жанры;
 * ``/opds/series`` — серии;
 * ``/opds/books`` — все книги.
 
@@ -281,7 +281,7 @@ def root_feed(conn: sqlite3.Connection, base_url: str) -> bytes:
     )
     _nav_entry(
         feed,
-        title="Категории",
+        title="Жанры",
         href=_url(base_url, "/opds/genres"),
         seed=start + "#genres",
         content=f"Книги по жанрам — {stats.genres}",
@@ -351,13 +351,13 @@ def genres_feed(
     page, pages, _ = _page_state(total, page, page_size)
     self_url = _page_url(base_url, "/opds/genres", {}, page)
     feed = _new_feed(
-        "Категории",
+        "Жанры",
         self_url,
         kind=NAV_TYPE,
         start_url=start,
         up_url=start,
         search_url=_url(base_url, "/opds/opensearch.xml"),
-        subtitle=f"Всего категорий: {total}",
+        subtitle=f"Всего жанров: {total}",
     )
     for genre in genres:
         _nav_entry(
@@ -378,12 +378,12 @@ def tree_genres_feed(
     roots: Iterable[CategoryNode],
     total_books: int,
 ) -> bytes:
-    """Навигационный OPDS-фид с деревом категорий."""
+    """Навигационный OPDS-фид с деревом жанров."""
     start = _url(base_url, "/opds")
     self_url = _url(base_url, "/opds/genres")
     roots = list(roots)
     feed = _new_feed(
-        "Категории",
+        "Жанры",
         self_url,
         kind=NAV_TYPE,
         start_url=start,
@@ -409,12 +409,12 @@ def category_root_feed(
     base_url: str,
     root: CategoryNode,
 ) -> bytes:
-    """Навигация по корню дерева: подкатегории и все книги раздела."""
+    """Навигация по корню дерева: поджанры и все книги раздела."""
     start = _url(base_url, "/opds")
     root_path = "/opds/genres/root/" + quote(root.name, safe="")
     self_url = _url(base_url, root_path)
     feed = _new_feed(
-        f"Категория: {root.label}",
+        f"Жанр: {root.label}",
         self_url,
         kind=NAV_TYPE,
         start_url=start,
@@ -555,7 +555,7 @@ def genre_books_feed(
         title=genre.display_name or genre.name or genre_name(genre.code),
         path=f"/opds/genres/{genre.id}",
         up_url=_url(base_url, "/opds/genres"),
-        subtitle=f"Категория · {total} {_books_word(total)}",
+        subtitle=f"Жанр · {total} {_books_word(total)}",
     )
 
 

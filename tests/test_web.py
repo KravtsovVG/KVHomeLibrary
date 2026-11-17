@@ -95,7 +95,7 @@ class WebUiTests(unittest.TestCase):
             ("/ui", "Последние книги"),
             ("/ui/books", "Все книги"),
             ("/ui/authors", "Авторы"),
-            ("/ui/genres", "Категории"),
+            ("/ui/genres", "Жанры"),
             ("/ui/series", "Серии"),
             (f"/ui/books/{self.ids[BULGAKOV.name]}", "Белая гвардия"),
             ("/admin", "Администрирование"),
@@ -109,7 +109,7 @@ class WebUiTests(unittest.TestCase):
             self.assertIn(marker, body.decode("utf-8"), path)
             self.assertIn("KVHomeLibrary", body.decode("utf-8"), path)
         _, _, genres_body = self._get("/ui/genres")
-        self.assertIn("Дерево категорий", genres_body.decode("utf-8"))
+        self.assertIn("Дерево жанров", genres_body.decode("utf-8"))
         _, _, book_body = self._get(f"/ui/books/{self.ids[BULGAKOV.name]}")
         self.assertIn("все книги серии →", book_body.decode("utf-8"))
         self.assertIn("series_id=", book_body.decode("utf-8"))
@@ -145,7 +145,7 @@ class WebUiTests(unittest.TestCase):
     def test_admin_category_page(self) -> None:
         status, _, body = self._get("/admin/genres")
         self.assertEqual(status, 200)
-        self.assertIn("Управление категориями", body.decode("utf-8"))
+        self.assertIn("Управление жанрами", body.decode("utf-8"))
         genre = self.conn.execute(
             "SELECT id FROM genres WHERE code = 'sf_fantasy'"
         ).fetchone()

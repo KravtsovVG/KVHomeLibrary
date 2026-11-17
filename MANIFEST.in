@@ -1,5 +1,6 @@
 recursive-include kvhomelibrary/templates *.html
 recursive-include kvhomelibrary/static *.css *.js
+recursive-include scripts *.py
 include README.md
 include DEBIAN.md
 include LICENSE

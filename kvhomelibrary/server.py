@@ -1106,7 +1106,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
             genres, _ = list_genres(conn, limit=100000)
             root = find_root(build_category_tree(genres), root_name)
             if root is None:
-                self._send_text("Категория не найдена", 404, head=head)
+                self._send_text("Жанр не найден", 404, head=head)
                 return
             root_path = "/opds/genres/root/" + quote(root.name, safe="")
             if not books_only:
@@ -1140,7 +1140,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
                     page_size=page_size,
                     total=total,
                     books=books,
-                    title=f"Категория: {root.name}",
+                    title=f"Жанр: {root.name}",
                     path=root_path + "/books",
                     up_url=base_url.rstrip("/") + root_path,
                     subtitle=f"Раздел · {total} {_books_word(total)}",
@@ -1271,7 +1271,7 @@ class OPDSRequestHandler(BaseHTTPRequestHandler):
     def _genre(self, conn, genre_id: int, base_url: str, page: int, page_size: int, head: bool) -> None:
         genre = get_genre(conn, genre_id)
         if genre is None or genre.books == 0:
-            self._send_text("Категория не найдена", 404, head=head)
+            self._send_text("Жанр не найден", 404, head=head)
             return
         pages = _page_count(genre.books, page_size)
         page = min(page, pages)

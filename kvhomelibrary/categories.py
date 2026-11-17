@@ -1,8 +1,8 @@
-"""Дерево категорий и вспомогательные функции.
+"""Дерево жанров и вспомогательные функции.
 
-Путь категории хранится в ``category_path`` (например,
-``Основная_Подкатегория``), а отображаемое имя — в ``display_name``.
-Исторические категории без пути используют ``name``.
+Путь жанра хранится в ``category_path`` (например,
+``Основная_Поджанр``), а отображаемое имя — в ``display_name``.
+Исторические жанры без пути используют ``name``.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class CategoryNode:
 
 
 def split_category(name: str) -> tuple[str, str]:
-    """Вернуть (корень, подкатегория) по первому ``_``."""
+    """Вернуть (корень, поджанр) по первому ``_``."""
     value = (name or "").strip()
     if "_" not in value:
         return value, ""
@@ -50,7 +50,7 @@ def _segments(path: str) -> list[str]:
 
 
 def build_category_tree(genres: list[GenreRef]) -> list[CategoryNode]:
-    """Построить дерево по путям категорий."""
+    """Построить дерево по путям жанров."""
     roots: dict[str, CategoryNode] = {}
     nodes: dict[str, CategoryNode] = {}
 

@@ -63,8 +63,8 @@ _NOTICES = {
     "source_deleted": "Источник удалён.",
     "downloaded": "Книга скачана в каталог и добавлена в библиотеку.",
     "archive_scanned": "Импорт из архивов завершён.",
-    "genres_merged": "Категории объединены, старые названия сохранены как алиасы.",
-    "genre_updated": "Категория обновлена.",
+    "genres_merged": "Жанры объединены, старые названия сохранены как алиасы.",
+    "genre_updated": "Жанр обновлён.",
     "bulk_deleted": "Книги удалены из каталога. Файлы на диске остались.",
 }
 _ERRORS = {
@@ -79,8 +79,8 @@ _ERRORS = {
     "download": "Не удалось скачать книгу из источника.",
     "download_parse": "Файл скачан в библиотеку, но не распознан как FB2.",
     "archive_scan": "Не удалось импортировать архивы. Проверьте путь, даты и наличие 7-Zip/unrar.",
-    "merge": "Не удалось объединить категории.",
-    "genre": "Не удалось изменить категорию. Проверьте имя и родительский раздел.",
+    "merge": "Не удалось объединить жанры.",
+    "genre": "Не удалось изменить жанр. Проверьте имя и родительский раздел.",
     "bulk_delete": "Не удалось удалить выбранные книги.",
 }
 
@@ -224,7 +224,7 @@ def _stats_html(stats: Stats) -> SafeString:
     items = [
         {"value": stats.books, "label": _books_word(stats.books)},
         {"value": stats.authors, "label": "авторов"},
-        {"value": stats.genres, "label": "категорий"},
+        {"value": stats.genres, "label": "жанров"},
         {"value": stats.series, "label": "серий"},
         {"value": stats.failed, "label": "ошибок разбора"},
     ]
@@ -448,7 +448,7 @@ def books_page(
     if author:
         title = f"Книги автора: {author.name}"
     elif genre:
-        title = f"Категория: {genre.display_name or genre.name}"
+        title = f"Жанр: {genre.display_name or genre.name}"
     elif root_node:
         title = f"Раздел: {root_node.name}"
     elif series:
@@ -504,10 +504,10 @@ def genres_page(conn, query: Mapping[str, list[str]], *, notice: str = "", error
     genres, total = list_genres(conn, limit=TREE_LIMIT)
     body = render(
         "genre_tree.html",
-        total_label=f"{total} категорий",
+        total_label=f"{total} жанров",
         tree=_category_tree(conn),
     )
-    return _layout("Категории", body, active="genres", notice=notice, error=error)
+    return _layout("Жанры", body, active="genres", notice=notice, error=error)
 
 
 def series_page(conn, query: Mapping[str, list[str]], *, notice: str = "", error: str = "") -> bytes:
@@ -551,7 +551,7 @@ def book_page(
         {"label": "Город", "text": book.city or "—"},
         {"label": "ISBN", "text": book.isbn or "—"},
         {"label": "Язык", "text": book.lang or "—"},
-        {"label": "Категории", "html": _genres(book) or _esc("—")},
+        {"label": "Жанры", "html": _genres(book) or _esc("—")},
         {"label": "Формат", "text": format_label(book.format)},
         {
             "label": "Файл",
@@ -700,7 +700,7 @@ def admin_genres_page(
         aliases=list_genre_aliases(conn, limit=500),
     )
     return _layout(
-        "Управление категориями",
+        "Управление жанрами",
         body,
         active="admin",
         notice=notice,

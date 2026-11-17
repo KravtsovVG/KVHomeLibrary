@@ -412,7 +412,7 @@ def normalize_genres(conn: sqlite3.Connection) -> int:
     """Слить варианты кодов жанров и проставить русские названия.
 
     В старых библиотеках встречаются ``sf-action``, ``sf_action`` и
-    ``Боевая фантастика`` как три отдельные категории. Функция приводит их
+    ``Боевая фантастика`` как три отдельные жанры. Функция приводит их
     к одному каноническому коду и переносит связи книг.
     """
     rows = conn.execute("SELECT id, code FROM genres ORDER BY id").fetchall()
@@ -1253,7 +1253,7 @@ def get_series(conn: sqlite3.Connection, series_id: int) -> SeriesRef | None:
 
 
 def genre_ids_for_root(conn: sqlite3.Connection, name: str) -> list[int]:
-    """ID категории и всех её подкатегорий по пути ``name_``."""
+    """ID жанра и всех её поджанров по пути ``name_``."""
     key = (name or "").strip().casefold()
     if not key:
         return []
@@ -1288,13 +1288,13 @@ def list_genre_aliases(conn: sqlite3.Connection, *, limit: int = 200) -> list[di
 def merge_genres(
     conn: sqlite3.Connection, source_id: int, target_id: int
 ) -> tuple[int, int]:
-    """Объединить категорию (и её подкатегории) с целевой.
+    """Объединить жанр (и её поджанры) с целевой.
 
-    Возвращает (сколько книг затронуто, сколько категорий удалено).
-    Названия и коды присоединённых категорий сохраняются как алиасы.
+    Возвращает (сколько книг затронуто, сколько жанров удалено).
+    Названия и коды присоединённых жанров сохраняются как алиасы.
     """
     if source_id == target_id:
-        raise ValueError("Нельзя объединить категорию с самой собой.")
+        raise ValueError("Нельзя объединить жанр с самим собой.")
     source = conn.execute(
         "SELECT id, code, name, category_path, display_name FROM genres WHERE id = ?",
         (source_id,),
@@ -1304,14 +1304,14 @@ def merge_genres(
         (target_id,),
     ).fetchone()
     if source is None or target is None:
-        raise ValueError("Категория не найдена.")
+        raise ValueError("Жанр не найден.")
 
     source_name = str(source["category_path"] or source["name"]).strip()
     target_name = str(target["category_path"] or target["name"]).strip()
     source_key = source_name.casefold()
     target_key = target_name.casefold()
-    if target_key == source_key or target_key.startswith(source_key + "_"):
-        raise ValueError("Нельзя присоединить категорию к её подкатегории.")
+    if target_key != source_key and target_key.startswith(source_key + "_"):
+        raise ValueError("Нельзя присоединить жанр к её поджанрам.")
 
     rows = conn.execute(
         "SELECT id, code, name, category_path, display_name FROM genres"
@@ -1319,11 +1319,12 @@ def merge_genres(
     source_ids = [
         int(row["id"])
         for row in rows
-        if str(row["category_path"] or row["name"]).casefold() == source_key
-        or str(row["category_path"] or row["name"]).casefold().startswith(source_key + "_")
+        if int(row["id"]) != target_id
+        and (
+            str(row["category_path"] or row["name"]).casefold() == source_key
+            or str(row["category_path"] or row["name"]).casefold().startswith(source_key + "_")
+        )
     ]
-    if target_id in source_ids:
-        raise ValueError("Нельзя присоединить категорию к её подкатегории.")
 
     placeholders = ",".join("?" for _ in source_ids)
     book_ids = [
@@ -1371,7 +1372,7 @@ def merge_genres(
 
 
 def delete_books_for_genre(conn: sqlite3.Connection, genre_id: int) -> int:
-    """Удалить книги категории и всех её подкатегорий."""
+    """Удалить книги жанра и всех её поджанров."""
     genre = get_genre(conn, genre_id)
     if genre is None:
         return 0
@@ -1379,7 +1380,7 @@ def delete_books_for_genre(conn: sqlite3.Connection, genre_id: int) -> int:
 
 
 def delete_books_for_category_name(conn: sqlite3.Connection, name: str) -> int:
-    """Удалить книги корня/категории по имени, включая подкатегории."""
+    """Удалить книги корня/жанра по имени, включая поджанры."""
     ids = genre_ids_for_root(conn, name)
     if not ids:
         return 0
@@ -1394,13 +1395,13 @@ def delete_books_for_category_name(conn: sqlite3.Connection, name: str) -> int:
 def merge_category_root(
     conn: sqlite3.Connection, source_name: str, target_id: int
 ) -> tuple[int, int]:
-    """Объединить корень дерева (все его категории) с целевой категорией."""
+    """Объединить корень дерева (все его жанры) с целевым жанром."""
     source_name = (source_name or "").strip()
     target = conn.execute(
         "SELECT id, code, name, category_path FROM genres WHERE id = ?", (target_id,)
     ).fetchone()
     if target is None:
-        raise ValueError("Категория не найдена.")
+        raise ValueError("Жанр не найден.")
     rows = conn.execute(
         "SELECT id, code, name, category_path FROM genres"
     ).fetchall()
@@ -1421,7 +1422,7 @@ def merge_category_root(
     moved = 0
     removed = 0
     # Если у корня есть собственная запись, merge_genres сразу заберёт
-    # и все подкатегории. Иначе объединяем каждую подкатегорию по очереди.
+    # и все поджанры. Иначе объединяем каждый поджанр по очереди.
     root_row = next(
         (
             row for row in source_rows
@@ -1462,19 +1463,19 @@ def update_genre(
     display_name: str,
     parent_path: str,
 ) -> int:
-    """Переименовать категорию и/или переместить её с подкатегориями."""
+    """Переименовать жанр и/или переместить её с поджанрами."""
     row = conn.execute(
         "SELECT id, name, category_path, display_name FROM genres WHERE id = ?",
         (genre_id,),
     ).fetchone()
     if row is None:
-        raise ValueError("Категория не найдена.")
+        raise ValueError("Жанр не найден.")
     old_path = str(row["category_path"] or row["name"]).strip()
     old_key = old_path.casefold()
     parent_path = (parent_path or "").strip().strip("_")
     parent_key = parent_path.casefold()
     if parent_key == old_key or parent_key.startswith(old_key + "_"):
-        raise ValueError("Нельзя переместить категорию внутрь себя.")
+        raise ValueError("Нельзя переместить жанр внутрь себя.")
 
     segments = [part.strip() for part in old_path.split("_") if part.strip()]
     leaf = segments[-1] if segments else old_path
@@ -1492,14 +1493,14 @@ def update_genre(
         for index in range(1, len(parts)):
             known_paths.add("_".join(parts[:index]))
     if parent_path and parent_key not in known_paths:
-        raise ValueError("Родительская категория не найдена.")
+        raise ValueError("Родительская жанр не найдена.")
     for item in rows:
         item_path = str(item["category_path"] or item["name"]).strip()
         item_key = item_path.casefold()
         if int(item["id"]) == genre_id:
             continue
         if item_key == new_key:
-            raise ValueError("Категория с таким путём уже существует.")
+            raise ValueError("Жанр с таким путём уже существует.")
         if item_key.startswith(old_key + "_"):
             renamed = new_path + item_path[len(old_path):]
             if renamed.casefold() in known_paths:

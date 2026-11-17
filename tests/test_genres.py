@@ -32,7 +32,7 @@ REAL_CODES = {
     "computers": "Компьютеры",
     "fanfiction": "Фанфикшн",
     "sf_technofantasy": "Технофэнтези",
-    "unrecognised": "Без категории",
+    "unrecognised": "Без жанра",
     "comp_www": "Интернет и веб",
     "unfinished": "Незавершённое",
     "det_action": "Боевой детектив",

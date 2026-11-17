@@ -2,11 +2,11 @@
 
 Структура::
 
-    <library>/<язык>/<корневая категория>/<серия>/<файл>
+    <library>/<язык>/<корневой жанр>/<серия>/<файл>
 
-Если язык не указан — ``ЯзыкНеизвестен``. Если категория не указана —
-``БезКатегории``. Если серия не указана, файл лежит прямо в каталоге
-корневой категории.
+Если язык не указан — ``ЯзыкНеизвестен``. Если жанр не указан —
+``БезЖанра``. Если серия не указана, файл лежит прямо в каталоге
+корневого жанра.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .fb2 import ParsedBook
 from .genres import genre_name
 
 UNKNOWN_LANGUAGE = "ЯзыкНеизвестен"
-NO_CATEGORY = "БезКатегории"
+NO_CATEGORY = "БезЖанра"
 
 _INVALID = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _SPACES = re.compile(r"\s+")
@@ -62,7 +62,7 @@ def target_path(
     archive_zip: bool = False,
     original_name: str = "",
 ) -> Path:
-    """Вычислить путь по языку/корневой категории/серии."""
+    """Вычислить путь по языку/корневого жанра/серии."""
     library = Path(library_dir).expanduser().resolve()
     language = safe_component(book_language(book), UNKNOWN_LANGUAGE)
     category = safe_component(book_category(book), NO_CATEGORY)

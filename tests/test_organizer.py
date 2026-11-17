@@ -61,7 +61,7 @@ class OrganizerTests(unittest.TestCase):
             ).is_dir()
         )
         self.assertTrue(
-            (self.library / "ЯзыкНеизвестен" / "БезКатегории").is_dir()
+            (self.library / "ЯзыкНеизвестен" / "БезЖанра").is_dir()
         )
         self.assertFalse(self.old.exists())
         conn = connect_db(self.db)

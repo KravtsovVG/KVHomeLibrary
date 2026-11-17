@@ -11,9 +11,9 @@
     </select>
   </div>
   <div>
-    <label for="f-genre">Категория</label>
+    <label for="f-genre">Жанр</label>
     <select id="f-genre" name="genre_id">
-      <option value="">Все категории</option>
+      <option value="">Все жанры</option>
       {% for item in genres %}<option value="{{ item.id }}"{% if item.selected %} selected{% endif %}>{{ item.name }} ({{ item.count }})</option>{% endfor %}
     </select>
   </div>
