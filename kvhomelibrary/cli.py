@@ -177,8 +177,15 @@ def build_parser() -> argparse.ArgumentParser:
     organize_parser.add_argument(
         "path",
         nargs="?",
-        default=DEFAULT_LIBRARY,
+        default=None,
         help=f"каталог с книгами (по умолчанию: {DEFAULT_LIBRARY})",
+    )
+    organize_parser.add_argument(
+        "--scan-dir",
+        "--source",
+        dest="scan_dir",
+        default="",
+        help="каталог для сканирования (альтернатива позиционному пути)",
     )
     organize_parser.add_argument("--covers", help="каталог для обложек")
     organize_parser.add_argument(
@@ -354,7 +361,14 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 def cmd_organize(args: argparse.Namespace) -> int:
-    library = Path(args.path).expanduser()
+    if args.scan_dir and args.path:
+        print(
+            "Ошибка: укажите каталог либо позиционным путём, либо --scan-dir, не одновременно.",
+            file=sys.stderr,
+        )
+        return 2
+    raw_path = args.scan_dir or args.path or DEFAULT_LIBRARY
+    library = Path(raw_path).expanduser()
     if not library.is_dir():
         print(f"Ошибка: каталог не найден: {library}", file=sys.stderr)
         return 2

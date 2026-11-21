@@ -438,13 +438,20 @@ python -m kvhomelibrary organize "D:\Books" --db data\library.db --dry-run
 
 :: затем выполнить перенос; пустые старые папки удалить
 python -m kvhomelibrary organize "D:\Books" --db data\library.db --prune-empty
+
+:: явно указать каталог сканирования
+python -m kvhomelibrary organize --scan-dir "D:\Books" --db data\library.db --dry-run
 ```
 
 Параметры:
 
+- `--scan-dir` / `--source` — каталог для сканирования;
 - `--copy` — копировать, а не перемещать;
 - `--dry-run` — только показать план;
 - `--prune-empty` — удалить пустые каталоги после переноса.
+
+Если каталог не указан ни позиционно, ни через `--scan-dir`, используется
+`books`.
 
 Во время работы выводится шкала прогресса с процентом, количеством
 обработанных файлов и именем текущего файла.
